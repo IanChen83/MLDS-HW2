@@ -19,6 +19,7 @@ N_OUTPUT = 48
 
 x_seq = T.matrix()
 y_hat = T.matrix()
+mask = T.vector()
 
 Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN) )
 bh = theano.shared( np.zeros(N_HIDDEN) )
@@ -46,7 +47,8 @@ y_0 = theano.shared(np.zeros(N_OUTPUT))
                 )
 
 #y_seq_last = y_seq[-1][0] # we only care about the last output 
-cost = T.sum( ( y_seq - y_hat )**2 ) 
+
+cost = T.sum( ( (y_seq.T*mask).T - y_hat )**2 ) 
 
 gradients = T.grad(cost,parameters)
 
@@ -57,7 +59,7 @@ def MyUpdate(parameters,gradients):
 	return parameters_updates
 
 rnn_test_cost = theano.function(
-        inputs= [x_seq,y_hat],
+        inputs= [x_seq,y_hat,mask],
         outputs = cost
         #allow_input_downcast=True, on_unused_input='ignore'
 )
@@ -69,7 +71,7 @@ rnn_test_y_evaluate = theano.function(
 )
 
 rnn_train = theano.function(
-        inputs=[x_seq,y_hat],
+        inputs=[x_seq,y_hat,mask],
         outputs=cost,
 	updates=MyUpdate(parameters,gradients)
 )
@@ -109,6 +111,7 @@ c = MAP()
 ACC = 0
 counter = 0
 epoch=0
+mask = []
 try:
     while True:
         X = []
@@ -117,6 +120,7 @@ try:
         flag_wav_end = 0
         flag_data_end = 0
         counter =counter+1
+        wav_len = 0
         if i>=train_number:#i>=1124823:
             i=0
             epoch=1
@@ -131,6 +135,7 @@ try:
                     Y.append(y)
                     X.append(f_DNNsoft[i][1:49])
                     flag_data_end = 1
+                    wav_len = int(name[i][2])
                 else:
                     y=[0]*48
                     Y.append(y)
@@ -151,16 +156,19 @@ try:
                         Y.append(y)
                         X.append(f_DNNsoft[i][1:49])
                         flag_wav_end = 1
+                        wav_len = int(name[i][2])
                     else:
                         y=[0]*48
                         Y.append(y)
                         X.append(y)
             count777 = count777+1;
         i=i+1
-        rnn_train(X,Y)
+
+        mask = np.ones(wav_len).tolist()+np.zeros(777-wav_len).tolist()
+        rnn_train(X,Y,mask)
 
         if epoch==1:
-            print rnn_test_cost(X,Y)
+            #print rnn_test_cost(X,Y,mask)
             err=0.0
             m=0
             while(m<validation_num):
