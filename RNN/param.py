@@ -1,16 +1,16 @@
-from theano import tensor
-
 import cPickle
-import config
 import theano
+from theano import tensor as T
 import numpy
 from util import print_error
-import activation_function
+
+import config
+from activation_function import act
 
 __author__ = 'patrickchen'
 
-X = tensor.fmatrix()
-Y = tensor.fmatrix()
+X = T.fmatrix()
+Y = T.fmatrix()
 Y_evaluated = None
 
 # 'i' stands for input
@@ -21,6 +21,9 @@ Wh = []
 Bh = []
 Wo = []
 Bo = []
+
+step_y = None
+step_a = []
 
 
 def load_param_from_file(filename):
@@ -43,7 +46,7 @@ def load_param_from_file(filename):
 
     config.input_dim = conf.input_dim
     config.output_dim = conf.output_dim
-    config.hidden_layer_dimension_list = conf.lidden_layer_dimension_num_list
+    config.hidden_layer_dim_list = conf.lidden_layer_dimension_num_list
     config.batch_num = conf.batch_num
     config.layer_num = conf.layer_num
 
@@ -61,7 +64,7 @@ def write_param(filename):
     conf = config.DumpConfig()
     conf.input_dim = config.input_dim
     conf.output_dim = config.output_dim
-    conf.hidden_layer_dimension_list = config.hidden_layer_dimension_list
+    conf.hidden_layer_dimension_list = config.hidden_layer_dim_list
     conf.batch_num = config.batch_num
     conf.layer_num = config.layer_num
 
@@ -89,55 +92,65 @@ def initialize_param(force=False):
     #         and force is False:
     #     print_error("Some parameters have been initialized. Specify 'force' to initialize parameters explicitly.")
     #     return False
-    if initialize_wi() is False\
-            or initialize_wh() is False\
-            or initialize_wo() is False\
-            or initialize_bh() is False\
-            or initialize_bo() is False:
+    if initialize_wi(force) is False\
+            or initialize_wh(force) is False\
+            or initialize_wo(force) is False\
+            or initialize_bh(force) is False\
+            or initialize_bo(force) is False:
         return False
     return True
 
-def initialize_y_evaluated(x):
-    result = x
-    for i in range(config.layer_num):
-        result = activation_function.act(
-            tensor.dot(result, Wi[i]) + Bh[i].dimshuffle('x', 1)
-        )
-    return result
+
+def initialize_step_y():
+    global step_y
+    step_y = theano.shared(numpy.zeros(config.output_shape()))
+
+
+def initialize_step_a():
+    global step_a
+    temp = config.hidden_layer_dim_list + [config.output_dim]
+    for i in range(len(temp)):
+        step_a.append(theano.shared(value=numpy.zeros(temp[i], temp[i + 1]),
+                                    name="step_a%d" % i).astype(dtype=theano.config.floatX)
+                      )
+
+"""
+################### Initialize Model Parameters ############################
+"""
 
 
 def initialize_wi(force=False):
     if len(Wi) != 0 and force is False:
-        print_error("W has been initialized. Specify 'force' to initialize W explicitly.")
+        print_error("Wi has been initialized. Specify 'force' to initialize Wi explicitly.")
         return False
 
-    temp = [config.input_dim] + config.hidden_layer_dimension_list + [config.output_dim]
+    temp = [config.input_dim] + config.hidden_layer_dim_list + [config.output_dim]
     for i in range(config.layer_num):
         wp = numpy.random.normal(config.random_mu, config.random_sigma,
                                  (temp[i], temp[i + 1])).astype(dtype=theano.config.floatX)
-        Wi.append(theano.shared(wp, name="Wi%d" % i))
+        Wh.append(theano.shared(wp, name="Wh%d" % i))
     return True
 
 
 def initialize_wh(force=False):
-    if len(Wi) != 0 and force is False:
-        print_error("W has been initialized. Specify 'force' to initialize W explicitly.")
+    if len(Wh) != 0 and force is False:
+        print_error("Wh has been initialized. Specify 'force' to initialize Wh explicitly.")
         return False
 
-    temp = [config.input_dim] + config.hidden_layer_dimension_list + [config.output_dim]
+    temp = config.hidden_layer_dim_list + [config.output_dim]
     for i in range(config.layer_num):
         wp = numpy.random.normal(config.random_mu, config.random_sigma,
-                                 (temp[i + 1], temp[i + 1])).astype(dtype=theano.config.floatX)
+                                 (temp[i], temp[i])).astype(dtype=theano.config.floatX)
         Wh.append(theano.shared(wp, name="Wh%d" % i))
     return True
 
 
 def initialize_wo(force=False):
-    if len(Wi) != 0 and force is False:
+    if len(Wo) != 0 and force is False:
         print_error("W has been initialized. Specify 'force' to initialize W explicitly.")
         return False
 
-    temp = [config.input_dim] + config.hidden_layer_dimension_list + [config.output_dim]
+    temp = [config.input_dim] + config.hidden_layer_dim_list + [config.output_dim]
     for i in range(config.layer_num):
         wp = numpy.random.normal(config.random_mu, config.random_sigma,
                                  (temp[i + 1], temp[i + 1])).astype(dtype=theano.config.floatX)
@@ -149,7 +162,7 @@ def initialize_bh(force=False):
     if len(Bh) != 0 and force is False:
         print_error("B has been initialized. Specify 'force' to initialize W explicitly.")
         return False
-    temp = [config.input_dim] + config.hidden_layer_dimension_list + [config.output_dim]
+    temp = [config.input_dim] + config.hidden_layer_dim_list + [config.output_dim]
     for i in range(config.layer_num):
         bp = numpy.random.normal(config.random_mu, config.random_sigma,
                                  (1, temp[i + 1])).astype(dtype=theano.config.floatX)
@@ -158,11 +171,52 @@ def initialize_bh(force=False):
 
 
 def initialize_bo(force=False):
-    if len(Bh) != 0 and force is False:
+    if len(Bo) != 0 and force is False:
         print_error("B has been initialized. Specify 'force' to initialize W explicitly.")
         return False
-    temp = [config.input_dim] + config.hidden_layer_dimension_list + [config.output_dim]
+    temp = [config.input_dim] + config.hidden_layer_dim_list + [config.output_dim]
     for i in range(config.layer_num):
         bp = numpy.random.normal(config.random_mu, config.random_sigma,
                                  (1, temp[i + 1])).astype(dtype=theano.config.floatX)
         Bo.append(theano.shared(bp, name="Bo%d" % i))
+
+"""
+################### Initialize Scan ###########################################
+"""
+
+
+def initialize_step():
+    # TODO: Haven't known the input parameter of theano.scan, debugging is needed
+
+    def sub_step(x, a, i):
+        a_t = act(T.dot(x, Wi[i]) + T.dot(a, Wh[i]) + Bh[i])
+        y_t = T.dot(a_t, Wo[i]) + Bo[i]
+        return a_t, y_t, i
+
+    def step(x_seq, i):
+        a = theano.shared(numpy.zeros((config.hidden_layer_dim_list[i], config.hidden_layer_dim_list[i])))
+        [_y_seq, a_seq, t], _ = theano.scan(
+            sub_step,
+            sequences=X,
+            outputs_info=[x_seq, a, i],
+            truncate_gradient=-1
+        )
+        return _y_seq, i+1
+
+    i = theano.shared(0)
+    [y_seq, i_seq], _ = theano.scan(
+        step,
+        sequences=X,
+        outputs_info=[step_y, i],
+        truncate_gradient=-1
+                )
+
+
+def initialize_scan():
+    # Note that we have ensured that all input have the same length
+    # Note that this function can only be called after all initialization have been done
+    initialize_step_a()
+    initialize_step_y()
+
+    initialize_step()
+

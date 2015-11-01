@@ -2,7 +2,7 @@ __author__ = 'patrickchen'
 
 input_dim = 0
 output_dim = 0
-hidden_layer_dimension_list = []
+hidden_layer_dim_list = []
 batch_num = 1
 layer_num = 1
 
@@ -22,3 +22,7 @@ class DumpConfig:
         self.hidden_layer_neuron_num_list = []
         self.batch_num = 1
         self.layer_num = 1
+
+
+def output_shape():
+    return 1, batch_num
