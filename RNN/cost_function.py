@@ -1,7 +1,5 @@
-__author__ = 'patrickchen'
-
-from theano import tensor
 import param
+__author__ = 'patrickchen'
 
 
 def norm_2(func, out):
@@ -21,4 +19,6 @@ def norm_1(func, out):
     """
     return (func - out).norm(1, axis=1)
 
-cost = norm_2(param.Y_evaluated, param.Y)
+
+def cost(y_e, y):
+    return norm_2(y_e, y)

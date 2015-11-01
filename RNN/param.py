@@ -4,6 +4,7 @@ from theano import tensor as T
 import numpy
 from util import print_error
 
+import cost_function
 import config
 from activation_function import act
 
@@ -22,11 +23,18 @@ Bh = []
 Wo = []
 Bo = []
 
+parameters = None
+
 step_y = None
 step_a = []
 
+cost = None
+get_cost = None
+grad = []
+
 
 def load_param_from_file(filename):
+    global parameters
     try:
         # Load config data from cPickle file
         i_parm_data = open(filename + "_I.txt", 'rb')
@@ -57,6 +65,7 @@ def load_param_from_file(filename):
         Bh[i].set_value(b_param[i].get_value())
         Bo[i].set_value(b_param[i + config.layer_num].get_value())
 
+    parameters = Wi + Wh + Wo + Bh + Bo
     return True
 
 
@@ -92,12 +101,14 @@ def initialize_param(force=False):
     #         and force is False:
     #     print_error("Some parameters have been initialized. Specify 'force' to initialize parameters explicitly.")
     #     return False
+    global parameters
     if initialize_wi(force) is False\
             or initialize_wh(force) is False\
             or initialize_wo(force) is False\
             or initialize_bh(force) is False\
             or initialize_bo(force) is False:
         return False
+    parameters = Wi + Wh + Wo + Bh + Bo
     return True
 
 
@@ -185,31 +196,38 @@ def initialize_bo(force=False):
 """
 
 
-def initialize_step():
+def initialize_y_evaluated():
+    if parameters is None:
+        initialize_param(False)
+
     # TODO: Haven't known the input parameter of theano.scan, debugging is needed
+    global Y_evaluated
 
-    def sub_step(x, a, i):
-        a_t = act(T.dot(x, Wi[i]) + T.dot(a, Wh[i]) + Bh[i])
-        y_t = T.dot(a_t, Wo[i]) + Bo[i]
-        return a_t, y_t, i
+    def sub_step(x, a, y, wi, wh, wo, bh, bo):
+        a_t = act(T.dot(x, wi) + T.dot(a, wh) + bh)
+        y_t = T.dot(a_t, wo) + bo
+        return a_t, y_t
 
-    def step(x_seq, i):
-        a = theano.shared(numpy.zeros((config.hidden_layer_dim_list[i], config.hidden_layer_dim_list[i])))
-        [_y_seq, a_seq, t], _ = theano.scan(
+    def step(x_seq, t):
+        a = theano.shared(numpy.zeros((config.hidden_layer_dim_list[t], config.hidden_layer_dim_list[t])))
+        _y_0 = theano.shared(numpy.zeros((config.batch_num, config.hidden_layer_dim_list[t])))
+        [_a_seq, _y_seq], _ = theano.scan(
             sub_step,
-            sequences=X,
-            outputs_info=[x_seq, a, i],
+            sequences=x_seq,
+            outputs_info=[a, _y_0],
+            non_sequences=[Wi[t], Wh[t], Wo[t], Bh[t], Bo[t]],
             truncate_gradient=-1
         )
-        return _y_seq, i+1
+        return _y_seq
 
     i = theano.shared(0)
-    [y_seq, i_seq], _ = theano.scan(
+    y_seq, _ = theano.scan(
         step,
-        sequences=X,
-        outputs_info=[step_y, i],
+        outputs_info=X,
+        sequences=T.arange(0, config.layer_num),
         truncate_gradient=-1
                 )
+    Y_evaluated = y_seq[-1]
 
 
 def initialize_scan():
@@ -218,5 +236,20 @@ def initialize_scan():
     initialize_step_a()
     initialize_step_y()
 
-    initialize_step()
 
+def initialize_cost():
+    if Y_evaluated is None:
+        initialize_y_evaluated()
+
+    global cost, get_cost
+    cost = cost_function.cost(Y_evaluated, Y)
+    get_cost = theano.function(inputs=[X],
+                               outputs=cost
+                               )
+
+
+def initialize_grad():
+    if cost is None:
+        initialize_cost()
+    for i in range(len(cost)):
+        grad.append(T.grad(cost[i], parameters))

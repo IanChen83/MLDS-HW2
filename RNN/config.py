@@ -14,6 +14,8 @@ test_output_file = "test_ans.csv"
 random_mu = 0
 random_sigma = 0.1
 
+learning_rate = 0.001
+
 
 class DumpConfig:
     def __init__(self):
