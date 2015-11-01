@@ -20,6 +20,7 @@ N_OUTPUT = 48
 x_seq = T.matrix()
 y_hat = T.matrix()
 mask = T.vector()
+y_seq_modify = T.matrix()
 
 Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN) )
 bh = theano.shared( np.zeros(N_HIDDEN) )
@@ -47,8 +48,8 @@ y_0 = theano.shared(np.zeros(N_OUTPUT))
                 )
 
 #y_seq_last = y_seq[-1][0] # we only care about the last output 
-
-cost = T.sum( ( (y_seq.T*mask).T - y_hat )**2 ) 
+y_seq_modify = (y_seq.T*mask).T 
+cost = T.sum( ( y_seq_modify - y_hat )**2 ) 
 
 gradients = T.grad(cost,parameters)
 
@@ -65,8 +66,8 @@ rnn_test_cost = theano.function(
 )
 
 rnn_test_y_evaluate = theano.function(
-        inputs= [x_seq],
-        outputs = y_seq
+        inputs= [x_seq,mask],
+        outputs = y_seq_modify
         #allow_input_downcast=True, on_unused_input='ignore'
 )
 
@@ -106,7 +107,7 @@ anstype = ["aa", "ae", "ah", "ao", "aw", "ax", "ay", "b", "ch", "cl", "d", "dh",
                , "y", "zh", "z"]
 
 train_number = 1091215 #1124823
-validation_num = 1124823-1091215
+validation_num = 1091422-1091215
 c = MAP()
 ACC = 0
 counter = 0
@@ -215,14 +216,16 @@ try:
                                 X_test.append(y)
                     count777_test = count777_test+1;
                 m=m+1
-                Ya = rnn_test_y_evaluate(X)
+                mask_test = np.ones(wave_lengh).tolist()+np.zeros(777-wave_lengh).tolist()
+                Ya = rnn_test_y_evaluate(X,mask_test)
                 #print "wave_lengh",wave_lengh
                 for index in range(wave_lengh):
-                    if( c.map(Ya[index]) !=  str(ans[train_number+m-wave_lengh-1+index].split('\n')[0]) ):
+                    if( c.map(Ya[index]) !=  str(ans[train_number+m-wave_lengh+index].split('\n')[0]) ):
                         err = err+1
-                        print Ya[index] 
-                        print c.map(Ya[index])
-                        print [str(ans[train_number+m-wave_lengh-1+index].split('\n')[0])]
+                        print "y_evaluate",Ya[index] 
+                        print train_number+m-wave_lengh+index
+                        print "test_name",name[train_number+m-wave_lengh+index][0],name[train_number+m-wave_lengh+index][1],"ANS",c.map(Ya[index])
+                        print [str(ans[train_number+m-wave_lengh+index].split('\n')[0])]
                 #print m
             ACC = 1.0-err/validation_num
             print 'ACC = %f'%(ACC)
