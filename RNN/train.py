@@ -10,6 +10,7 @@ train = None
 
 
 def initialize_train():
+    global train
     if len(param.grad) == 0:
         param.initialize_grad()
 

@@ -200,7 +200,7 @@ def initialize_y_evaluated():
     if parameters is None:
         initialize_param(False)
 
-    # TODO: Haven't known the input parameter of theano.scan, debugging is needed
+    # TODO: Haven't known the input parameter of theano.scan. Debugging is needed.
     global Y_evaluated
 
     def sub_step(x, a, y, wi, wh, wo, bh, bo):
@@ -220,7 +220,6 @@ def initialize_y_evaluated():
         )
         return _y_seq
 
-    i = theano.shared(0)
     y_seq, _ = theano.scan(
         step,
         outputs_info=X,
@@ -230,9 +229,10 @@ def initialize_y_evaluated():
     Y_evaluated = y_seq[-1]
 
 
+# Deprecated
+# No need to call this function any more
 def initialize_scan():
     # Note that we have ensured that all input have the same length
-    # Note that this function can only be called after all initialization have been done
     initialize_step_a()
     initialize_step_y()
 
@@ -251,5 +251,6 @@ def initialize_cost():
 def initialize_grad():
     if cost is None:
         initialize_cost()
+
     for i in range(len(cost)):
         grad.append(T.grad(cost[i], parameters))

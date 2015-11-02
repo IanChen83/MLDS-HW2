@@ -6,11 +6,6 @@ hidden_layer_dim_list = []
 batch_num = 1
 layer_num = 1
 
-train_input_file = "train.ark"
-train_answer_file = "answer_map.txt"
-test_input_file = "test.ark"
-test_output_file = "test_ans.csv"
-
 random_mu = 0
 random_sigma = 0.1
 
