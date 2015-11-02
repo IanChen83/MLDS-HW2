@@ -31,28 +31,31 @@ def print_data(title, content=None, switch=True):
     if switch is False:
         return
     if content is None:
-        print BColors.GREEN, "*", title, ":", BColors.END
+        print(BColors.GREEN + "* " + str(title) + ":" + BColors.END)
         return
-    print BColors.GREEN, "*", title, ":", BColors.END, "\n", content
+    print(BColors.GREEN + "* " + str(title) + ":" + BColors.END + "\n" + str(content))
 
 
 def print_error(content):
-    print BColors.RED, "* ERROR ", content, BColors.END
+    print(BColors.RED + "* ERROR " + str(content) + BColors.END)
 
 
 def my_print(title, content=None, switch=True):
     if switch is False:
         return
     if content is None:
-        print BColors.GREEN, "*", title, ":", BColors.END
+        print(BColors.GREEN + "* " + str(title) + ":" + BColors.END)
         return
-    print BColors.GREEN, "*", title, ":", BColors.END, content
+    print(BColors.GREEN + "* " + str(title) + ":" + BColors.END + str(content))
 
 
 def trim_length(seq, length):
     a = randrange(0, len(seq) - length)
-    return seq[a, a + length]
+    return [s[a, a + length] for s in seq]
 
+
+def translate_ans(t):
+    pass
 # try:
 #     map_file = open('48_39.map', 'r')
 #     in_48 = []

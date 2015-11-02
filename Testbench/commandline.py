@@ -36,5 +36,5 @@ def __exec_one_command__(cmd):
 
 def register_command(word, func):
     if word in dispatcher:
-        print_error("Register command warning: key already exists")
+        print_error("Register command warning: func will be replaced because key already exists")
     dispatcher[word] = func

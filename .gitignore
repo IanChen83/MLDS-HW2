@@ -62,3 +62,10 @@ target/
 
 # IDEA IDE
 .idea/
+
+#training file
+*.ark
+*.cpickle
+*.map
+answer_map.txt
+answer_map_sub.txt

@@ -1,8 +1,8 @@
 __author__ = 'patrickchen'
 
-input_dim = 0
-output_dim = 0
-hidden_layer_dim_list = []
+input_dim = 48
+output_dim = 48
+hidden_layer_dim_list = [128]
 batch_num = 1
 layer_num = 1
 

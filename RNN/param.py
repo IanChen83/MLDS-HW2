@@ -1,4 +1,7 @@
-import cPickle
+try:
+    import cPickle
+except ImportError:
+    import pickle as cPickle
 import theano
 from theano import tensor as T
 import numpy
@@ -30,7 +33,9 @@ step_a = []
 
 cost = None
 get_cost = None
-grad = []
+grad = None
+
+__count__ = 0
 
 
 def load_param_from_file(filename):
@@ -139,7 +144,7 @@ def initialize_wi(force=False):
     for i in range(config.layer_num):
         wp = numpy.random.normal(config.random_mu, config.random_sigma,
                                  (temp[i], temp[i + 1])).astype(dtype=theano.config.floatX)
-        Wh.append(theano.shared(wp, name="Wh%d" % i))
+        Wi.append(theano.shared(wp, name="Wi%d" % i))
     return True
 
 
@@ -158,7 +163,7 @@ def initialize_wh(force=False):
 
 def initialize_wo(force=False):
     if len(Wo) != 0 and force is False:
-        print_error("W has been initialized. Specify 'force' to initialize W explicitly.")
+        print_error("Wo has been initialized. Specify 'force' to initialize W explicitly.")
         return False
 
     temp = [config.input_dim] + config.hidden_layer_dim_list + [config.output_dim]
@@ -171,7 +176,7 @@ def initialize_wo(force=False):
 
 def initialize_bh(force=False):
     if len(Bh) != 0 and force is False:
-        print_error("B has been initialized. Specify 'force' to initialize W explicitly.")
+        print_error("Bh has been initialized. Specify 'force' to initialize W explicitly.")
         return False
     temp = [config.input_dim] + config.hidden_layer_dim_list + [config.output_dim]
     for i in range(config.layer_num):
@@ -208,23 +213,28 @@ def initialize_y_evaluated():
         y_t = T.dot(a_t, wo) + bo
         return a_t, y_t
 
-    def step(x_seq, t):
-        a = theano.shared(numpy.zeros((config.hidden_layer_dim_list[t], config.hidden_layer_dim_list[t])))
-        _y_0 = theano.shared(numpy.zeros((config.batch_num, config.hidden_layer_dim_list[t])))
+    global __count__
+
+    def step(x_seq):
+        global __count__
+        __count__ = 0
+        a = theano.shared(numpy.zeros((config.hidden_layer_dim_list[__count__], config.hidden_layer_dim_list[__count__])))
+        _y_0 = theano.shared(numpy.zeros((config.batch_num, config.hidden_layer_dim_list[__count__])))
         [_a_seq, _y_seq], _ = theano.scan(
             sub_step,
             sequences=x_seq,
             outputs_info=[a, _y_0],
-            non_sequences=[Wi[t], Wh[t], Wo[t], Bh[t], Bo[t]],
+            non_sequences=[Wi[__count__], Wh[__count__], Wo[__count__], Bh[__count__], Bo[__count__]],
             truncate_gradient=-1
         )
+        __count__ += 1
         return _y_seq
-
+    __count__ = 0
     y_seq, _ = theano.scan(
         step,
         outputs_info=X,
-        sequences=T.arange(0, config.layer_num),
-        truncate_gradient=-1
+        truncate_gradient=-1,
+        n_steps=config.layer_num
                 )
     Y_evaluated = y_seq[-1]
 
@@ -243,14 +253,13 @@ def initialize_cost():
 
     global cost, get_cost
     cost = cost_function.cost(Y_evaluated, Y)
-    get_cost = theano.function(inputs=[X],
+    get_cost = theano.function(inputs=[X, Y],
                                outputs=cost
                                )
 
 
 def initialize_grad():
+    global grad
     if cost is None:
         initialize_cost()
-
-    for i in range(len(cost)):
-        grad.append(T.grad(cost[i], parameters))
+    grad = T.grad(cost, parameters)

@@ -1,16 +1,16 @@
 import theano
 
 import param
-import config
 import update
 
 __author__ = 'patrickchen'
 
 train = None
+cost = None
 
 
 def initialize_train():
-    global train
+    global train, cost
     if len(param.grad) == 0:
         param.initialize_grad()
 
@@ -21,3 +21,7 @@ def initialize_train():
                             outputs=param.cost,
                             updates=update.update
                             )
+
+    cost = theano.function(inputs=[param.X, param.Y],
+                           outputs=param.cost,
+                           )
