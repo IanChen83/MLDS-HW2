@@ -1,4 +1,4 @@
-from Testbench.util import my_print, BColors
+from util import my_print
 import RNN.config as rc
 import Testbench.config as tc
 __author__ = 'patrickchen'

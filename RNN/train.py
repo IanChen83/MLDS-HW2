@@ -19,9 +19,11 @@ def initialize_train():
 
     train = theano.function(inputs=[param.X, param.Y],
                             outputs=param.cost,
-                            updates=update.update
+                            updates=update.update,
+                            allow_input_downcast=True
                             )
 
     cost = theano.function(inputs=[param.X, param.Y],
                            outputs=param.cost,
+                           allow_input_downcast=True
                            )

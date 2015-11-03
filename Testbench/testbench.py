@@ -3,8 +3,7 @@ import random
 from sys import stdout
 from collections import deque
 
-
-from Testbench.command import status, train
+from Testbench.command import status
 from util import *
 
 __author__ = 'patrickchen'

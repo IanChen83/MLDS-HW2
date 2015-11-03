@@ -1,5 +1,5 @@
-from Testbench.util import print_error
-from Testbench.commandline import command_queue
+from util import print_error
+from commandline import command_queue
 __author__ = 'patrickchen'
 
 

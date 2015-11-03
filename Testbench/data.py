@@ -3,7 +3,7 @@ try:
 except ImportError:
     import pickle as cPickle
 from random import randrange
-from util import trim_length, print_error
+from util import print_error
 from RNN.config import output_dim
 import config
 __author__ = 'patrickchen'
@@ -71,6 +71,20 @@ def write_training_input(filename="train.ark.cpickle"):
     f.close()
 
 
+def trim_length(ret_no, length):
+    """
+    :param ret_no: a list containing (No. of seq in training_input, length of the seq)
+    :param length: desired length
+    :return: (X, Y) to be passed to training function
+    """
+    ret = [], []
+    for j in ret_no:
+        a = randrange(0, j[1] - length) if j[1] - length > 0 else 0
+        ret[0].append(training_input[j[0]][a:a + length])
+        ret[1].append(training_answer[j[0]][a:a + length])
+    return ret
+
+
 def make_training_input_random(batch_size, start=0, stop=-1):
     """
         An implementation to generate training input with the same length
@@ -79,6 +93,7 @@ def make_training_input_random(batch_size, start=0, stop=-1):
         stop = training_input_len
     ret_no = []
 
+    # ret_no is a list containing (no. of seq in training_input, length of the seq)
     for i in range(batch_size):
         x = randrange(start, stop)
         ret_no.append(
@@ -86,17 +101,7 @@ def make_training_input_random(batch_size, start=0, stop=-1):
         )
 
     x = min(t[1] for t in ret_no)
-    ret_x = []
-    ret_y = []
-    for i in range(batch_size):
-        a = randrange(0, training_input[i] - x)
-        ret_x.append(
-            training_input[ret_no[i][0]][a:a+x]
-        )
-        ret_y.append(
-            training_answer[ret_no[i][0]][a:a+x]
-        )
-    return ret_x, ret_y
+    return trim_length(ret_no, x)
 
 
 def make_training_input_sequential(batch_size, start):
@@ -105,16 +110,9 @@ def make_training_input_sequential(batch_size, start):
         if start < 0:
             print_error("Error: training data < batch size")
             return None
+
+    # ret_no is a list containing (no. of seq in training_input, length of the seq)
     ret_no = [(i, len(training_input[i])) for i in range(start, start+batch_size)]
     x = min(t[1] for t in ret_no)
-    ret_x = []
-    ret_y = []
-    for i in range(batch_size):
-        a = randrange(0, training_input[i] - x)
-        ret_x.append(
-            training_input[ret_no[i][0]][a:a+x]
-        )
-        ret_y.append(
-            training_answer[ret_no[i][0]][a:a+x]
-        )
-    return ret_x, ret_y
+    return trim_length(ret_no, x)
+

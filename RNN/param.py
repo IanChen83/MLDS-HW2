@@ -13,8 +13,8 @@ from activation_function import act
 
 __author__ = 'patrickchen'
 
-X = T.fmatrix()
-Y = T.fmatrix()
+X = T.ftensor3().astype(dtype=theano.config.floatX)
+Y = T.ftensor3().astype(dtype=theano.config.floatX)
 Y_evaluated = None
 
 # 'i' stands for input
@@ -119,7 +119,7 @@ def initialize_param(force=False):
 
 def initialize_step_y():
     global step_y
-    step_y = theano.shared(numpy.zeros(config.output_shape()))
+    step_y = theano.shared(numpy.zeros(config.output_shape())).astype(dtype=theano.config.floatX)
 
 
 def initialize_step_a():
@@ -218,8 +218,17 @@ def initialize_y_evaluated():
     def step(x_seq):
         global __count__
         __count__ = 0
-        a = theano.shared(numpy.zeros((config.hidden_layer_dim_list[__count__], config.hidden_layer_dim_list[__count__])))
-        _y_0 = theano.shared(numpy.zeros((config.batch_num, config.hidden_layer_dim_list[__count__])))
+
+        a = theano.shared(
+            numpy.zeros((config.hidden_layer_dim_list[__count__],
+                         config.hidden_layer_dim_list[__count__]))
+        ).astype(dtype=theano.config.floatX)
+
+        _y_0 = theano.shared(
+            numpy.zeros((config.batch_num,
+                         config.hidden_layer_dim_list[__count__]))
+        ).astype(dtype=theano.config.floatX)
+
         [_a_seq, _y_seq], _ = theano.scan(
             sub_step,
             sequences=x_seq,
@@ -232,7 +241,7 @@ def initialize_y_evaluated():
     __count__ = 0
     y_seq, _ = theano.scan(
         step,
-        outputs_info=X,
+        outputs_info=X.dimshuffle(1, 0, 2),
         truncate_gradient=-1,
         n_steps=config.layer_num
                 )

@@ -1,11 +1,12 @@
 import sys
 
-import command.status
-import command.script
-import command.train
 import commandline
 import data
 import RNN.param
+import RNN.train
+import train
+import status
+
 __author__ = 'patrickchen'
 
 argv = None
@@ -19,9 +20,9 @@ def main():
 
 
 def init():
-    commandline.register_command("status", command.status.print_status)
+    commandline.register_command("status", status.print_status)
+    commandline.register_command("cost", train.get_acc)
     commandline.register_command("exit", exit)
-    commandline.register_command("cost", command.train.get_acc)
 
     print("@ Import training data")
     data.load_training_data_raw("train_sub.ark", "answer_map_sub.txt")
@@ -39,7 +40,8 @@ def init():
     RNN.param.initialize_cost()
     RNN.param.initialize_grad()
     print("@ Initialize cost and grad FINISH")
-    command.train.get_acc(None)
+    RNN.train.initialize_train()
+    train.get_acc(None)
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
