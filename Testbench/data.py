@@ -8,6 +8,7 @@ from RNN.config import output_dim
 import config
 __author__ = 'patrickchen'
 
+
 training_input = []
 training_answer = []
 test_input = []

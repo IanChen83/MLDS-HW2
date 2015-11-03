@@ -39,6 +39,7 @@ def init():
     RNN.param.initialize_cost()
     RNN.param.initialize_grad()
     print("@ Initialize cost and grad FINISH")
+    command.train.get_acc(None)
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
