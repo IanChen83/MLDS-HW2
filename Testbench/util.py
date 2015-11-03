@@ -16,6 +16,15 @@ class BColors:
         pass
 
 
+ans_types = [
+            "aa", "ae", "ah", "ao", "aw", "ax", "ay", "b", "ch", "cl", "d",
+            "dh", "dx", "eh", "el", "en", "epi", "er", "ey", "f", "g", "hh",
+            "ih", "ix", "iy", "jh", "k", "l", "m", "ng", "n", "ow", "oy", "p",
+            "r", "sh", "sil", "s", "th", "t", "uh", "uw", "vcl", "v", "w",
+            "y", "zh", "z"
+        ]
+
+
 def get_correctness_ratio(correct, total):
     return correct / total
 
@@ -49,21 +58,41 @@ def my_print(title, content=None, switch=True):
     print(BColors.GREEN + "* " + str(title) + ":" + BColors.END + str(content))
 
 
-def translate_ans(t):
-    pass
+'''
+################## Convert 48 to 39 ##########################################
+'''
+
+convert_48_to_39 = {}
+
 try:
     map_file = open('48_39.map', 'r')
-    in_48 = []
-    in_39 = []
     for line in map_file:
-        in_x = line.split('\t')
-        in_48.append(in_x[0])
-        in_39.append(in_x[1])
+        in_x = line.split()
+
+        convert_48_to_39[in_x[0]] = in_x[1]
+
 except IOError:
     print_error("48_39.map not found")
 
 
-def mapping_max(z, ans_type=0):
-    y = z.tolist()
-    big_index = y.index(max(y))
-    return in_48[big_index] if ans_type == 0 else in_39[big_index]
+def translate_to_ans_48(t):
+    ret = []
+    for i in range(len(t)):
+        c = [0] * 48
+        c[ans_types.index(t[i])] = 1
+        ret.append(c)
+
+    return ret
+
+
+# Use this function to translate test data to output_48 type
+def map_max_to_type(z):
+    return [ans_types[j.index(max(j))] for j in z]
+
+
+def get_correctness_num(x, y):
+    """
+    :param x: input batch
+    :return: num of correct
+    """
+    pass

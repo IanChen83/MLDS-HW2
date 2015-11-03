@@ -40,7 +40,11 @@ def init():
     RNN.param.initialize_cost()
     RNN.param.initialize_grad()
     print("@ Initialize cost and grad FINISH")
+
+    print("@ Initialize train")
     RNN.train.initialize_train()
+    print("@ Initialize train FINISH")
+
     train.get_acc(None)
 
 if __name__ == "__main__":

@@ -261,9 +261,10 @@ def initialize_cost():
         initialize_y_evaluated()
 
     global cost, get_cost
-    cost = cost_function.cost(Y_evaluated, Y)
+    cost = cost_function.cost(Y_evaluated, Y.dimshuffle(1, 0, 2))
     get_cost = theano.function(inputs=[X, Y],
-                               outputs=cost
+                               outputs=cost,
+                               on_unused_input='ignore'
                                )
 
 

@@ -3,7 +3,7 @@ try:
 except ImportError:
     import pickle as cPickle
 from random import randrange
-from util import print_error
+from util import print_error, translate_to_ans_48
 from RNN.config import output_dim
 import config
 __author__ = 'patrickchen'
@@ -13,14 +13,6 @@ training_input = []
 training_answer = []
 test_input = []
 training_input_len = 0
-
-ans_type = [
-            "aa", "ae", "ah", "ao", "aw", "ax", "ay", "b", "ch", "cl", "d",
-            "dh", "dx", "eh", "el", "en", "epi", "er", "ey", "f", "g", "hh",
-            "ih", "ix", "iy", "jh", "k", "l", "m", "ng", "n", "ow", "oy", "p",
-            "r", "sh", "sil", "s", "th", "t", "uh", "uw", "vcl", "v", "w",
-            "y", "zh", "z"
-        ]
 
 
 def load_training_data_raw(input_data=config.test_input_file, ans_data=config.train_answer_file):
@@ -38,12 +30,12 @@ def load_training_data_raw(input_data=config.test_input_file, ans_data=config.tr
         _12 = [float(t) for t in _11[1:]]
 
         _21 = ans_line.split(',')
-        _22 = [0] * output_dim
-        _22[ans_type.index(_21[1])] = 1
 
         _13 = _11[0].split('_')
         if _13[0] == pre and _13[1] == cen:
             training_input[i].append(_12)
+            # Trade-off: Should we save the memory to calculate answers every time?
+            # It costs 200 MB to store these data QQ
             training_answer[i].append(_21[1])
         else:
             pre = _13[0]
@@ -71,7 +63,7 @@ def write_training_input(filename="train.ark.cpickle"):
     f.close()
 
 
-def trim_length(ret_no, length):
+def make_input(ret_no, length):
     """
     :param ret_no: a list containing (No. of seq in training_input, length of the seq)
     :param length: desired length
@@ -82,10 +74,10 @@ def trim_length(ret_no, length):
         a = randrange(0, j[1] - length) if j[1] - length > 0 else 0
         ret[0].append(training_input[j[0]][a:a + length])
         ret[1].append(training_answer[j[0]][a:a + length])
-    return ret
+    return ret[0], [translate_to_ans_48(j) for j in ret[1]]
 
 
-def make_training_input_random(batch_size, start=0, stop=-1):
+def training_input_random_selection(batch_size, start=0, stop=-1):
     """
         An implementation to generate training input with the same length
     """
@@ -101,10 +93,10 @@ def make_training_input_random(batch_size, start=0, stop=-1):
         )
 
     x = min(t[1] for t in ret_no)
-    return trim_length(ret_no, x)
+    return make_input(ret_no, x)
 
 
-def make_training_input_sequential(batch_size, start):
+def training_input_sequential_selection(batch_size, start):
     if start + batch_size > training_input_len:
         start = training_input_len - batch_size
         if start < 0:
@@ -114,5 +106,4 @@ def make_training_input_sequential(batch_size, start):
     # ret_no is a list containing (no. of seq in training_input, length of the seq)
     ret_no = [(i, len(training_input[i])) for i in range(start, start+batch_size)]
     x = min(t[1] for t in ret_no)
-    return trim_length(ret_no, x)
-
+    return make_input(ret_no, x)
