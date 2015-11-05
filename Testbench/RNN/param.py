@@ -5,11 +5,10 @@ except ImportError:
 import theano
 from theano import tensor as T
 import numpy
-from util import print_error
 
+from util import print_error
 import cost_function
 import config
-from activation_function import act
 
 __author__ = 'patrickchen'
 

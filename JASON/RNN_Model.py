@@ -23,7 +23,6 @@ y_hat = T.matrix()
 mask = T.vector()
 
 
-
 Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN) )
 bh = theano.shared( np.zeros(N_HIDDEN) )
 Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT) )
@@ -50,8 +49,8 @@ y_0 = theano.shared(np.zeros(N_OUTPUT))
                 )
 
 #y_seq_modify = (T.exp(y_seq).T/ T.sum( T.exp(y_seq) , axis=1)).T
-y_seq_modify = (y_seq.T*mask).T 
-cost = T.sum( ( y_seq_modify - y_hat )**2 ) 
+y_seq_modify = (y_seq.T*mask).T
+cost = T.sum( ( y_seq_modify - y_hat )**2 )
 #cost = -1*((T.log(y_seq_modify)*y_hat).sum())
 decay_rate = 0.99
 gradients = T.grad(cost,parameters)
@@ -59,7 +58,7 @@ gradients = T.grad(cost,parameters)
 
 def MyUpdate(parameters,gradients):
 	mu =  np.float32(0.00001)
-	parameters_updates = [(p,p - mu * T.clip(g,-10,10)) for p,g in izip(parameters,gradients) ] 
+	parameters_updates = [(p,p - mu * T.clip(g,-10,10)) for p,g in izip(parameters,gradients) ]
 	return parameters_updates
 
 rnn_test_cost = theano.function(
@@ -87,7 +86,7 @@ rnn_train = theano.function(
 )
 
 def float_convert(i):
-    try: 
+    try:
         return np.float32(i)
     except ValueError :
         return i
@@ -144,7 +143,7 @@ try:
         wav_len = 0
         if i>=train_number:#i>=1124823:
             i=0
-        
+
         while (count777<777) :
             if(i==train_number-1):
                 if(flag_data_end==0):
@@ -168,7 +167,7 @@ try:
                     Y.append(y)
                     X.append(f_DNNsoft[i][1:49])
                     i=i+1
-                else: 
+                else:
                     if(flag_wav_end==0):
                         typeidx = anstype.index(str(ans[i].split('\n')[0]))
                         y=[0]*48
@@ -183,14 +182,14 @@ try:
                         X.append(y)
             count777 = count777+1;
             if i % 100000 == 0:
-                print i 
+                print i
 
         if (i not in wav):
             print "FUCKING!!!!"
             print 'i' ,i
         if (len(X)!=777 or len(Y)!=777):
             print 'len wrong!!'
-            
+
         i=i+1
 
         mask = np.ones(wav_len).tolist()+np.zeros(777-wav_len).tolist()
@@ -233,7 +232,7 @@ try:
                             Y_test.append(y)
                             X_test.append(f_DNNsoft[train_number+m][1:49])
                             m=m+1
-                        else: 
+                        else:
                             if(flag_wav_end_test==0):
                                 typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
                                 y=[0]*48
@@ -270,7 +269,7 @@ try:
                     #        print 'ans',str(ans[train_number+test_index+index].split('\n')[0])
                     if( c.map(Ya[index]) !=  str(ans[train_number+test_index+index].split('\n')[0]) ):
                         err = err+1
-                        #print Ya[index] 
+                        #print Ya[index]
                         #print train_number+m-wave_lengh+index
                         #if(test_index<1000):
                         #    print "test_name",name[train_number+test_index+index][0],name[train_number+test_index+index][1]
@@ -336,7 +335,7 @@ while(m<validation_num):
                 Y_test.append(y)
                 X_test.append(f_DNNsoft[train_number+m][1:49])
                 m=m+1
-            else: 
+            else:
                 if(flag_wav_end_test==0):
                     typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
                     y=[0]*48

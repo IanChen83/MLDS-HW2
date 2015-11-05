@@ -4,8 +4,8 @@ except ImportError:
     import pickle as cPickle
 from random import randrange
 from util import print_error, translate_to_ans_48
-from RNN.config import output_dim
 import config
+
 __author__ = 'patrickchen'
 
 

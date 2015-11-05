@@ -1,6 +1,6 @@
 from util import my_print
 import RNN.config as rc
-import Testbench.config as tc
+import config as tc
 __author__ = 'patrickchen'
 
 
