@@ -9,9 +9,6 @@ from  output48_39 import *
 import pdb
 __author__= 'JasonWu'
 
-# Min/max sequence length
-#MIN_LENGTH = 50
-#MAX_LENGTH = 55
 # Number of units in the hidden (recurrent) layer
 N_HIDDEN = 128
 # input
@@ -22,17 +19,30 @@ N_OUTPUT = 48
 x_seq = T.matrix()
 y_hat = T.matrix()
 mask = T.vector()
+start = T.scalar()
+PARM = T.matrix()
 
+#################### LOAD PARAMETER #################
+parm_data = file('parameter_RNN_1105.txt','rb')
+parm = cPickle.load(parm_data)
+Wi = parm[0] 
+bh = parm[1] 
+Wo = parm[2] 
+bo = parm[3] 
+Wh = parm[4] 
 
-
-Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN) )
+'''
+Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN)*100 )
 bh = theano.shared( np.zeros(N_HIDDEN) )
-Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT) )
+Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT)*100 )
 bo = theano.shared( np.zeros(N_OUTPUT) )
 Wh = theano.shared( np.zeros(N_HIDDEN) )
+'''
+#sigma = theano.shared(np.random.randn(N_INPUT,N_HIDDEN) )
 #Wi = theano.shared( np.random.normal(0, 0.1, (N_INPUT,N_HIDDEN)) )
 #Wo = theano.shared( np.random.normal(0, 0.1, (N_HIDDEN,N_OUTPUT)) )
 parameters = [Wi,bh,Wo,bo,Wh]
+#sigma = [Wi,bh,Wo,bo,Wh]
 
 def sigmoid(z):
         return 1/(1+T.exp(-z))
@@ -45,6 +55,7 @@ def step(x_t,a_tm1,y_tm1):
 a_0 = theano.shared(np.zeros(N_HIDDEN))
 y_0 = theano.shared(np.zeros(N_OUTPUT))
 
+
 [a_seq,y_seq],_ = theano.scan(
                         step,
                         sequences = x_seq,
@@ -55,14 +66,40 @@ y_0 = theano.shared(np.zeros(N_OUTPUT))
 #y_seq_modify = (T.exp(y_seq).T/ T.sum( T.exp(y_seq) , axis=1)).T
 y_seq_modify = (y_seq.T*mask).T 
 cost = T.sum( ( y_seq_modify - y_hat )**2 ) 
-gradients = T.grad(cost,parameters)
+parm_temp = PARM
+#cost = -1*((T.log(y_seq_modify)*y_hat).sum())
+#decay_rate = 0.999
+
+#gradients = T.grad(cost,parameters)
 
 
-def MyUpdate(parameters,gradients):
-    mu =  np.float32(0.001)
-    parameters_updates = [(p,p - mu * T.clip(g,-0.1,0.1)) for p,g in izip(parameters,gradients) ] 
+def RMSprop(cost, params, lr=0.001, rho=0.9, epsilon=1e-6):
+    grads = T.grad(cost=cost, wrt=params)
+    updates = []
+    for p, g in zip(params, grads):
+        acc = theano.shared(p.get_value() * 0.)
+        #print acc.get_value()
+        acc_new = rho * acc + (1 - rho) * g ** 2
+        gradient_scaling = T.sqrt(acc_new + epsilon)
+        g = g / gradient_scaling
+        updates.append((acc, acc_new))
+        updates.append((p, p - lr * g))
+    return updates
+
+'''
+def MyUpdate(parameters,gradients,sigma):
+    mu =  np.float32(0.00001)
+    parameters_updates = [(p,p - mu/s * T.clip(g,10,10)) for p,g,s in izip(parameters,gradients,sigma) ] 
     return parameters_updates
 
+def MyUpdate_sigma(sigma,gradients):
+    sigma_updates = [(p, T.sqrt(decay_rate*(p**2)+(1-decay_rate)*(g**2)) ) for p,g in izip(sigma,gradients) ] 
+    return sigma_updates
+
+def MyUpdate_sigma_initial(sigma,gradients):
+    sigma_updates_inital = [(p, g) for p,g in izip(sigma,gradients) ] 
+    return sigma_updates_inital
+'''
 rnn_test_cost = theano.function(
         inputs= [x_seq,y_hat,mask],
         outputs = cost
@@ -81,10 +118,10 @@ rnn_test_parm = theano.function(
         #allow_input_downcast=True, on_unused_input='ignore'
 )
 
-rnn_train = theano.function(
+rnn_train_test = theano.function(
         inputs=[x_seq,y_hat,mask],
         outputs=cost,
-	updates=MyUpdate(parameters,gradients)
+        updates=RMSprop(cost, parameters, lr=0.001, rho=0.9, epsilon=1e-6)
 )
 
 def float_convert(i):
@@ -92,12 +129,29 @@ def float_convert(i):
         return np.float32(i)
     except ValueError :
         return i
+'''
+def load_parm_1(PARM):
+    global parameters
+    updates = []
+    for i in range(len(parameters)):
+        updates.append((parameters[i],PARM[i]) )
+    return updates
 
+rnn_load_parm_1 = theano.function(
+        inputs=[PARM],
+        outputs=[],
+        updates=load_parm_1(PARM)
+)
 
-def load_parm(PARM):
-        parameters = PARM
-
+#parm_data = file('parameter_RNN_1105.txt','rb')
+#parm = cPickle.load(parm_data)
+rnn_load_parm_1(parm)
+'''
 ######################################################## testbench part ##########################################
+
+#rnn_load_parm_2(parm)
+#print rnn_test_parm()
+
 f = open('DNN_softmax.txt','r')
 #f = open('train_wav1.ark','r')
 #f = open('posteriorgram/train.post','r')
@@ -138,6 +192,8 @@ ACC = 0.0
 epoch=0
 mask = []
 i=0
+epoch_counter = 47
+start=1
 try:
     while True:
         X = []
@@ -200,11 +256,21 @@ try:
         #print '##############################wav_len' , wav_len
         #print '##############################i' , i
         mask = np.ones(wav_len).tolist()+np.zeros(len_max-wav_len).tolist()
-        rnn_train(X,Y,mask)
-        print "COST=", rnn_test_cost(X,Y,mask)
+        '''
+        if(start == 1):
+            rnn_train_0(X,Y,mask)
+        else:
+            rnn_train_1(X,Y,mask)
+        start = 0
+        rnn_train_2(X,Y,mask)
+        '''
+        rnn_train_test(X,Y,mask)
+        #print "COST=", rnn_test_cost(X,Y,mask)
         #Ya = rnn_test_y_evaluate(X)
         
         if epoch==1:
+            epoch_counter = epoch_counter+1
+            print 'epoch_counter',epoch_counter
             print "COST=", rnn_test_cost(X,Y,mask)
             #print rnn_test_parm()
             err=0.0
@@ -252,7 +318,6 @@ try:
             #ACC = err / train_number
             #print "ACC",ACC
             '''
-            
             while(m<validation_num):
                 X_test=[]
                 Y_test=[]
@@ -260,7 +325,6 @@ try:
                 flag_wav_end_test = 0
                 count777_test = 0
                 wave_lengh = 0
-                mask_a =[]
                 while (count777_test<777) :
                     if(m==validation_num-1):
                         if(flag_data_end_test==0):
@@ -337,14 +401,14 @@ try:
             
 except KeyboardInterrupt:
     pass
-'''
+    '''
 err = 0.0
 for index in range(474):
     #print 'Ya[index]',Ya[index]
 
-    print 'c.map(Ya[index])',c.map(Ya[index])
-    print Ya[index]
-    print 'ANS',str(ans[index].split('\n')[0])
+    #print 'c.map(Ya[index])',c.map(Ya[index])
+    #print Ya[index]
+    #print 'ANS',str(ans[index].split('\n')[0])
     if( c.map(Ya[index]) !=  str(ans[index].split('\n')[0]) ):
         err = err+1.0
 print 1-(err / 477.0)
@@ -352,7 +416,7 @@ print 1-(err / 477.0)
 f.close()
 ans_data.close()
 
-f_P = file('parameter_RNN_1103.txt', 'wb')
+f_P = file('parameter_RNN_1105_1.txt', 'wb')
 cPickle.dump(parameters, f_P, protocol=cPickle.HIGHEST_PROTOCOL)
 f_P.close()
 '''
