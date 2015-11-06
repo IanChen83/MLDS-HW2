@@ -81,7 +81,7 @@ def initialize_train():
     rnn_train = theano.function(
         inputs=[param.X, param.Y],
         outputs=cost,
-        # updates=update_pairs(param.parameters, grad),
+        updates=update_pairs(param.parameters, grad),
         allow_input_downcast=True,
         on_unused_input='ignore'
     )

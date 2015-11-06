@@ -214,7 +214,7 @@ def initialize_y_evaluated():
         a_t = T.dot(x, wi) + T.dot(a, wh) + bh
         y_t = T.dot(a_t, wo) + bo
         return a_t, y_t
-    y_propagate = X.dimshuffle(1, 0, 2)
+    y_propagate = X.swapaxes(1, 0)
 
     temp = config.hidden_layer_dim_list + [config.output_dim]
     step_a = theano.shared(numpy.zeros((temp[0], temp[1])).astype(dtype=theano.config.floatX), name="step_a%d" % 0)
@@ -247,7 +247,7 @@ def initialize_cost():
         initialize_y_evaluated()
 
     global cost, get_cost
-    cost = cost_function.cost(Y_evaluated, Y.dimshuffle(1, 0, 2))
+    cost = cost_function.cost(Y_evaluated, Y.swapaxes(1, 0))
     get_cost = theano.function(inputs=[X, Y],
                                outputs=cost,
                                on_unused_input='ignore'

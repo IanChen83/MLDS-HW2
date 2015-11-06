@@ -29,7 +29,7 @@ def init():
     print("@ Import training data")
     data.load_training_data_raw("train_sub.ark", "answer_map_sub.txt")
     print("@ Import training data FINISH")
-    fuck.fuck(["1", "a"])
+    fuck.fuck(["10000", "a"])
     # a = T.ftensor3("a").astype(dtype=theano.config.floatX)
     # b = theano.function([a], a.dimshuffle(1, 0, 2), allow_input_downcast=True)
     # print(b(data.training_input_sequential_selection(RNN.config.batch_num, 0)[0]).shape)
