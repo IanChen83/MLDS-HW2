@@ -23,7 +23,7 @@ len_max = 777
 
 x_seq = T.ftensor3()
 y_hat = T.ftensor3()
-mask = T.matrix()
+mask = T.ftensor3()
 start = T.scalar()
 PARM = T.matrix()
 '''
@@ -70,38 +70,10 @@ def step(x_t,a_tm1,y_tm1):
                         truncate_gradient=-1
                 )
 
-#cost = 0
-cost_temp = []
-temp = T.vector()
-y_seq_modify = []
-for i in range(len_max):
-    y_seq_modify.append ( (y_seq[i].T*mask[i]).T )
 
-cost = T.sum( T.batched_tensordot( y_seq_modify , y_hat) ) / batch_num
-    #cost_temp.append( (( y_seq_modify - y_hat[i] )**2 ).sum()  )
+y_seq_modify =  (y_seq*mask) 
+cost = (( y_seq_modify - y_hat )**2 ).sum() / batch_num
 
-#cost_func = theano.function([temp], T.sum(temp))
-#cost = cost_temp[0]+cost_temp[1]+cost_temp[2]+cost_temp[3]+cost_temp[4]+cost_temp[5]+cost_temp[6]+cost_temp[7]+cost_temp[8]+\
-#       cost_temp[0]+cost_temp[0]+cost_temp[0]+cost_temp[0]+cost_temp[0]+cost_temp[0]+cost_temp[0]+cost_temp[0]+cost_temp[0]  #cost_func(cost_temp)
-
-
-#cost = (cost_temp[0])/batch_num
-    #y_seq_modify_1 = (T.exp(y_seq_modify).T / T.sum( T.exp(y_seq_modify) , axis=1)).T
-    #cost = -1*((T.log(y_seq_modify_1)*y_hat[i]).sum()) + cost
-'''
-cost = 0
-for i in range(batch_num):
-    y_seq_modify = []
-    y_hat_temp = []
-    for ii in range(len_max):
-        y_seq_modify.append(y_seq[ii][i])
-        y_hat_temp.append( y_hat[ii][i] )
-    y_seq_modify = T.as_tensor_variable(y_seq_modify)
-    y_seq_modify_1 = (y_seq_modify.T*mask[i]).T
-    y_seq_modify_2 = (T.exp(y_seq_modify_1).T/ T.sum( T.exp(y_seq_modify_1) , axis=1)).T
-    cost = -1*((T.log(y_seq_modify_2)*y_hat_temp).sum()) + cost
-cost = cost / batch_num
-'''
 #y_seq_modify_1 = (y_seq.T*mask).T 
 #y_seq_modify = (T.exp(y_seq_modify_1).T/ T.sum( T.exp(y_seq_modify_1) , axis=1)).T
 #cost = -1*((T.log(y_seq_modify)*y_hat).sum())
@@ -124,19 +96,16 @@ def RMSprop(cost, params, lr=0.001, rho=0.9, epsilon=1e-6):
 rnn_test_cost = theano.function(
         inputs= [x_seq,y_hat,mask],
         outputs = cost
-        #allow_input_downcast=True, on_unused_input='ignore'
 )
 
 rnn_test_y_evaluate = theano.function(
         inputs= [x_seq],
         outputs = y_seq
-        #allow_input_downcast=True, on_unused_input='ignore'
 )
 
 rnn_test_parm = theano.function(
         inputs= [],
         outputs = [Wi,bh,Wo,bo,Wh]
-        #allow_input_downcast=True, on_unused_input='ignore'
 )
 
 rnn_train_test = theano.function(
@@ -153,10 +122,7 @@ def float_convert(i):
 
 ######################################################## testbench part ##########################################
 
-
 f = open('DNN_softmax.txt','r')
-#f = open('train_wav1.ark','r')
-#f = open('posteriorgram/train.post','r')
 ans_data = open('answer_map.txt','r')
 
 f_DNNsoft = []
@@ -171,13 +137,13 @@ ans = []
 for line in ans_data:
     ans_x = line.split(',')
     ans.append(ans_x[1])
-wav=[]
+wav_end=[]
 for i in range( len(name) ):
     if i != len(name)-1:
         if int(name[i][2])+1 != int(name[i+1][2]):
-            wav.append(i)
+            wav_end.append(i)
     else:
-        wav.append(i)
+        wav_end.append(i)
 wav_start = []
 for i in range( len(name) ):
     if int(name[i][2]) == 1:
@@ -202,15 +168,12 @@ mask = []
 i=0
 epoch_counter = 0
 start=1
-print start
+
 try:
     while True:
         X = []
         Y= [] 
         count777 = 0
-        
-        #flag_data_end = 0
-        #wav_len = 0
         
         if i>=run_time:#i>=1124823:
             i=0
@@ -231,7 +194,7 @@ try:
             Y_batch = []
             for bi in range(batch_num):
                 now_i = wav_start[num[bi]]
-                if( (count_len[bi]+now_i) in wav):
+                if( (count_len[bi]+now_i) in wav_end):
                     if flag_wav_end[bi]==0:
                         flag_wav_end[bi] = 1
                         if(name[count_len[bi]+now_i][0][0] == 'f'):
@@ -263,78 +226,23 @@ try:
             Y.append(Y_batch)
             count777 = count777+1
 
-        #print 'len(X)' , len(X)
-        #print 'len(X[0])',len(X[0])
-        '''
-        while (count777<len_max) :
-            if(i==train_number-1):
-                if(flag_data_end==0):
-                    typeidx = anstype.index(str(ans[i].split('\n')[0]))
-                    y=[0]*48
-                    y[typeidx]=1
-                    Y.append(y)
-                    if(name[i][0][0] == 'f'):
-                        X.append(np.array([0]+f_DNNsoft[i][1:49]))
-                    else:
-                        X.append(np.array([1]+f_DNNsoft[i][1:49]))
-                    flag_data_end = 1
-                    wav_len = int(name[i][2])
-                    epoch=1
-                else:
-                    y=[0]*48
-                    yy = [0]*49
-                    Y.append(y)
-                    X.append(yy)
-            else:
-                if(name[i][0]==name[i+1][0] and name[i][1]==name[i+1][1]) :
-                    typeidx = anstype.index(str(ans[i].split('\n')[0]))
-                    y=[0]*48
-                    y[typeidx]=1
-                    Y.append(y)
-                    if(name[i][0][0] == 'f'):
-                        X.append(np.array([0]+f_DNNsoft[i][1:49]))
-                    else:
-                        X.append(np.array([1]+f_DNNsoft[i][1:49]))
-                    i=i+1
-                else: 
-                    if(flag_wav_end==0):
-                        typeidx = anstype.index(str(ans[i].split('\n')[0]))
-                        y=[0]*48
-                        y[typeidx]=1
-                        Y.append(y)
-                        if(name[i][0][0] == 'f'):
-                            X.append(np.array([0]+f_DNNsoft[i][1:49]))
-                        else:
-                            X.append(np.array([1]+f_DNNsoft[i][1:49]))
-                        flag_wav_end = 1
-                        wav_len = int(name[i][2])
-                    else:
-                        y=[0]*48
-                        yy = [0]*49
-                        Y.append(y)
-                        X.append(yy)
-            count777 = count777+1;
-            #if i % 100000 == 0:
-            #    print i 
-        '''
         i=i+1
         print i 
-        mask = []
+        mask_1 = []
         for mask_i in range(batch_num):
-            mask.append( np.ones(wav_len[mask_i]).tolist()+np.zeros(len_max-wav_len[mask_i]).tolist() )
-        mask = np.array(mask).T
-        '''
-        if(start == 1):
-            rnn_train_0(X,Y,mask)
-        else:
-            rnn_train_1(X,Y,mask)
-        start = 0
-        rnn_train_2(X,Y,mask)
-        '''
+            mask_1.append( np.ones(wav_len[mask_i]).tolist()+np.zeros(len_max-wav_len[mask_i]).tolist() )
+        mask_1 = np.array(mask_1).T
+
+        mask=[]
+        for ii in range(len_max):
+            mask_2=np.tile(mask_1[ii],(N_OUTPUT,1))
+            mask_2 = mask_2.T
+            mask.append(mask_2)
+
         rnn_train_test(X,Y,mask)
-        print rnn_test_cost(X,Y,mask)
-        #print "COST=", rnn_test_cost(X,Y,mask)
-        #Ya = rnn_test_y_evaluate(X)
+        print 'cost = ',rnn_test_cost(X,Y,mask)
+
+        ######################### check for one epoch #########################
         '''
         if epoch==1:
             epoch_counter = epoch_counter+1
@@ -438,6 +346,8 @@ try:
             epoch = 0
             counter = 0
             '''
+        ######################### check for one epoch #########################
+        
 except KeyboardInterrupt:
     pass
     '''
@@ -455,7 +365,7 @@ print 1-(err / 477.0)
 f.close()
 ans_data.close()
 
-f_P = file('parameter_RNN_1106.txt', 'wb')
+f_P = file('parameter_RNN_1107.txt', 'wb')
 cPickle.dump(parameters, f_P, protocol=cPickle.HIGHEST_PROTOCOL)
 f_P.close()
 '''
