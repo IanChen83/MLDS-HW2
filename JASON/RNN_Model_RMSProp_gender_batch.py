@@ -17,7 +17,7 @@ N_INPUT = 49 # 48 + 1 (male = 1, female = 0)
 # output
 N_OUTPUT = 48
 #mini batch
-batch_num = 128
+batch_num = 64
 #sentence max length
 len_max = 777
 
@@ -56,6 +56,9 @@ a_0 = theano.shared( np.tile(a_0,(batch_num,1)) )
 y_0 = np.zeros(N_OUTPUT)
 y_0 = theano.shared( np.tile(y_0,(batch_num,1)) )
 
+a_1 = theano.shared( np.zeros(N_HIDDEN) )
+y_1 = theano.shared( np.zeros(N_HIDDEN) )
+
 def sigmoid(z):
     return 1/(1+T.exp(-z))
 
@@ -65,7 +68,7 @@ def step(x_t,a_tm1,y_tm1):
         return a_t, y_t
 
 def step_1(x_t_1,a_tm1_1,y_tm1_1):
-        a_t = sigmoid( T.dot(x_t_1[0],Wi) + T.dot(a_tm1_1[0],Wh) + bh[0] )
+        a_t = sigmoid( T.dot(x_t_1,Wi) + T.dot(a_tm1_1,Wh) + bh[0] )
         y_t = T.dot(a_t,Wo) + bo[0]
         return a_t, y_t
 
@@ -79,7 +82,7 @@ def step_1(x_t_1,a_tm1_1,y_tm1_1):
 [a_seq_1,y_seq_1],_ = theano.scan(
                         step_1,
                         sequences = x_seq_1,
-                        outputs_info = [ a_0, y_0 ],
+                        outputs_info = [ a_1, y_1 ],
                         truncate_gradient=-1
                 )
 
@@ -178,7 +181,7 @@ c = MAP()
 ACC = 0.0
 epoch=0
 mask = []
-i=0
+i=56
 epoch_counter = 0
 start=1
 
@@ -281,7 +284,7 @@ try:
                             y=[0]*48
                             y[typeidx]=1
                             Y_test.append(y)
-                            if(name[m][0][0] == 'f'):
+                            if(name[train_number+m][0][0] == 'f'):
                                 X_test.append(np.array([0]+f_DNNsoft[train_number+m][1:49]))
                             else:
                                 X_test.append(np.array([1]+f_DNNsoft[train_number+m][1:49]))
@@ -298,7 +301,7 @@ try:
                             y=[0]*48
                             y[typeidx]=1
                             Y_test.append(y)
-                            if(name[m][0][0] == 'f'):
+                            if(name[train_number+m][0][0] == 'f'):
                                 X_test.append(np.array([0]+f_DNNsoft[train_number+m][1:49]))
                             else:
                                 X_test.append(np.array([1]+f_DNNsoft[train_number+m][1:49]))
@@ -309,7 +312,7 @@ try:
                                 y=[0]*48
                                 y[typeidx]=1
                                 Y_test.append(y)
-                                if(name[m][0][0] == 'f'):
+                                if(name[train_number+m][0][0] == 'f'):
                                     X_test.append(np.array([0]+f_DNNsoft[train_number+m][1:49]))
                                 else:
                                     X_test.append(np.array([1]+f_DNNsoft[train_number+m][1:49]))
@@ -328,7 +331,7 @@ try:
                     print 'len wrong!!'
 
                 m=m+1
-                Ya = rnn_test_y_evaluate(X)
+                Ya = rnn_test_y_evaluate(X_test)
                 for index in range(wave_lengh):
                     if( c.map(Ya[index]) !=  str(ans[train_number+test_index+index].split('\n')[0]) ):
                         err = err+1
