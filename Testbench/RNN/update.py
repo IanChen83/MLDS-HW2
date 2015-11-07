@@ -1,8 +1,8 @@
 from itertools import izip
-import numpy
-from theano import tensor as T
+
 import config
 import param
+
 __author__ = 'patrickchen'
 
 update = None

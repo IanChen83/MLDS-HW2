@@ -7,6 +7,7 @@ __author__ = 'patrickchen'
 
 train = None
 cost = None
+dimshuffle = None
 
 
 def initialize_train():
@@ -27,3 +28,7 @@ def initialize_train():
                            outputs=param.cost,
                            allow_input_downcast=True,
                            )
+    dimshuffle = theano.function(inputs=[param.X],
+                                 outputs=param.X.dimshuffle(1,0,2),
+                                 allow_input_downcast=True
+                                 )

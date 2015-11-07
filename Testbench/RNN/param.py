@@ -5,16 +5,15 @@ except ImportError:
 import theano
 from theano import tensor as T
 import numpy
-from util import print_error
 
+from util import print_error
 import cost_function
 import config
-from activation_function import act
 
 __author__ = 'patrickchen'
 
-X = T.ftensor3().astype(dtype=theano.config.floatX)
-Y = T.ftensor3().astype(dtype=theano.config.floatX)
+X = T.ftensor3("X").astype(dtype=theano.config.floatX)
+Y = T.ftensor3("Y").astype(dtype=theano.config.floatX)
 Y_evaluated = None
 
 # 'i' stands for input
@@ -125,9 +124,10 @@ def initialize_step_y():
 def initialize_step_a():
     global step_a
     temp = config.hidden_layer_dim_list + [config.output_dim]
-    for i in range(len(temp)):
-        step_a.append(theano.shared(value=numpy.zeros(temp[i], temp[i + 1]),
-                                    name="step_a%d" % i).astype(dtype=theano.config.floatX)
+    for i in range(len(temp) - 1):
+        step_a.append(
+            theano.shared(numpy.zeros((temp[i], temp[i + 1])),
+                          name="step_a%d" % i).astype(dtype=theano.config.floatX)
                       )
 
 """
@@ -202,50 +202,36 @@ def initialize_bo(force=False):
 
 
 def initialize_y_evaluated():
+    global Y_evaluated, step_a, step_y
     if parameters is None:
         initialize_param(False)
+    # if len(step_a) == 0:
+    #     initialize_scan()
 
     # TODO: Haven't known the input parameter of theano.scan. Debugging is needed.
-    global Y_evaluated
 
-    def sub_step(x, a, y, wi, wh, wo, bh, bo):
-        a_t = act(T.dot(x, wi) + T.dot(a, wh) + bh)
+    def step(x, a, wi, wh, wo, bh, bo):
+        a_t = T.dot(x, wi) + T.dot(a, wh) + bh
         y_t = T.dot(a_t, wo) + bo
         return a_t, y_t
+    y_propagate = X.swapaxes(1, 0)
 
-    global __count__
+    temp = config.hidden_layer_dim_list + [config.output_dim]
+    step_a = theano.shared(numpy.zeros((temp[0], temp[1])).astype(dtype=theano.config.floatX), name="step_a%d" % 0)
+    for i in range(config.layer_num):
+        [a_seq, y_seq], updates = theano.scan(
+                fn=step,
+                sequences=y_propagate,
+                outputs_info=[step_a, step_y],
+                non_sequences=[Wi[i], Wh[i], Wo[i], Bh[i], Bo[i]],
+                truncate_gradient=-1,
+                name="step_func"
+            )
+        step_a = theano.shared(numpy.zeros((temp[i], temp[i + 1])).astype(dtype=theano.config.floatX), name="step_a%d" % i)
+        # y_propagate = T.concatenate(y_seq, axis=0)
+        y_propagate = y_seq
 
-    def step(x_seq):
-        global __count__
-        __count__ = 0
-
-        a = theano.shared(
-            numpy.zeros((config.hidden_layer_dim_list[__count__],
-                         config.hidden_layer_dim_list[__count__]))
-        ).astype(dtype=theano.config.floatX)
-
-        _y_0 = theano.shared(
-            numpy.zeros((config.batch_num,
-                         config.hidden_layer_dim_list[__count__]))
-        ).astype(dtype=theano.config.floatX)
-
-        [_a_seq, _y_seq], _ = theano.scan(
-            sub_step,
-            sequences=x_seq,
-            outputs_info=[a, _y_0],
-            non_sequences=[Wi[__count__], Wh[__count__], Wo[__count__], Bh[__count__], Bo[__count__]],
-            truncate_gradient=-1
-        )
-        __count__ += 1
-        return _y_seq
-    __count__ = 0
-    y_seq, _ = theano.scan(
-        step,
-        outputs_info=X.dimshuffle(1, 0, 2),
-        truncate_gradient=-1,
-        n_steps=config.layer_num
-                )
-    Y_evaluated = y_seq[-1]
+    Y_evaluated = y_propagate
 
 
 # Deprecated
@@ -261,7 +247,7 @@ def initialize_cost():
         initialize_y_evaluated()
 
     global cost, get_cost
-    cost = cost_function.cost(Y_evaluated, Y.dimshuffle(1, 0, 2))
+    cost = cost_function.cost(Y_evaluated, Y.swapaxes(1, 0))
     get_cost = theano.function(inputs=[X, Y],
                                outputs=cost,
                                on_unused_input='ignore'
