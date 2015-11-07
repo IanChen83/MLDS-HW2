@@ -9,6 +9,10 @@ prompt = "Enter a command:"
 
 dispatcher = {}
 
+try:
+    input = raw_input
+except NameError:
+    pass
 
 def __do_nothing__(_):
     pass
@@ -30,7 +34,7 @@ def __exec_one_command__(cmd):
     commands = cmd.strip().split()
     if len(commands) == 0:
         return
-    func = dispatcher.get(commands[0], lambda(_): __do_nothing__)
+    func = dispatcher.get(commands[0], lambda _: __do_nothing__)
     func(commands[1:])
 
 

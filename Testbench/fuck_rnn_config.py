@@ -8,6 +8,9 @@ batch_num = 1
 random_mu = 0
 random_sigma = 0.1
 
+rho=0.9
+epsilon=1e-6
+
 learning_rate = 0.001
 
 train_input_file = "train.ark"

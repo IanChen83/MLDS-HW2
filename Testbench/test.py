@@ -27,7 +27,7 @@ def init():
     # commandline.register_command("cost", train.get_acc)
 
     print("@ Import training data")
-    data.load_training_data_raw("train_sub.ark", "answer_map_sub.txt")
+    data.load_training_data_raw("DNN_softmax_sub.txt", "answer_map_sub.txt")
     print("@ Import training data FINISH")
     fuck.fuck(["10000", "a"])
     # a = T.ftensor3("a").astype(dtype=theano.config.floatX)

@@ -1,7 +1,7 @@
 import theano
 
-import param
-import update
+import RNN.param as param
+import RNN.update as update
 
 __author__ = 'patrickchen'
 

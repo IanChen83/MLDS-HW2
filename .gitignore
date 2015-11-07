@@ -67,5 +67,7 @@ target/
 *.ark
 *.cpickle
 *.map
+DNN_softmax.txt
+DNN_softmax_sub.txt
 answer_map.txt
 answer_map_sub.txt

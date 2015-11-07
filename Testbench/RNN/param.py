@@ -7,8 +7,8 @@ from theano import tensor as T
 import numpy
 
 from util import print_error
-import cost_function
-import config
+import RNN.cost_function as cost_function
+import RNN.config as config
 
 __author__ = 'patrickchen'
 
@@ -45,11 +45,11 @@ def load_param_from_file(filename):
         conf = cPickle.load(i_parm_data)
 
         # Load W from cPickle file
-        w_parm_data = file(filename + "_W.txt", 'rb')
+        w_parm_data = open(filename + "_W.txt", 'rb')
         w_param = cPickle.load(w_parm_data)
 
         # Load B from cPickle file
-        b_parm_data = file(filename + "_B.txt", 'rb')
+        b_parm_data = open(filename + "_B.txt", 'rb')
         b_param = cPickle.load(b_parm_data)
 
     except IOError:
@@ -82,15 +82,15 @@ def write_param(filename):
     conf.layer_num = config.layer_num
 
     try:
-        f = file(filename + '_I.txt', 'wb')
+        f = open(filename + '_I.txt', 'wb')
         cPickle.dump(conf, f, protocol=cPickle.HIGHEST_PROTOCOL)
         f.close()
 
-        f = file(filename + '_W.txt', 'wb')
+        f = open(filename + '_W.txt', 'wb')
         cPickle.dump(Wi + Wh + Wo, f, protocol=cPickle.HIGHEST_PROTOCOL)
         f.close()
 
-        f = file(filename + '_B.txt', 'wb')
+        f = open(filename + '_B.txt', 'wb')
         cPickle.dump(Bh + Bo, f, protocol=cPickle.HIGHEST_PROTOCOL)
         f.close()
     except IOError:

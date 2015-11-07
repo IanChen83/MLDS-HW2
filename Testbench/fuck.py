@@ -4,7 +4,10 @@ import data
 import theano
 import theano.tensor as tensor
 import numpy
-from itertools import izip
+try:
+    from itertools import izip
+except ImportError:
+    izip = zip
 __author__ = 'patrickchen'
 
 rnn_test_cost = None
@@ -81,7 +84,7 @@ def initialize_train():
     rnn_train = theano.function(
         inputs=[param.X, param.Y],
         outputs=cost,
-        updates=update_pairs(param.parameters, grad),
+        updates=RMSprop(param.parameters, grad),
         allow_input_downcast=True,
         on_unused_input='ignore'
     )
@@ -99,6 +102,18 @@ def update_pairs(parameter, gradient):
     return parameters_updates
 
 
+def RMSprop(params, grad):
+    updates = []
+    for p, g in zip(params, grad):
+        acc = theano.shared(p.get_value() * 0.)
+        # print acc.get_value()
+        acc_new = config.rho * acc + (1 - config.rho) * g ** 2
+        gradient_scaling = theano.tensor.sqrt(acc_new + config.epsilon)
+        g = g / gradient_scaling
+        updates.append((acc, acc_new))
+        updates.append((p, p - config.learning_rate * g))
+    return updates
+
 """
     #################### Train and Test #############################
 """
@@ -106,6 +121,8 @@ def update_pairs(parameter, gradient):
 
 def train(cycle):
     for i in range(cycle):
+        if rnn_train is None:
+            initialize_train()
         c = data.training_input_random_selection(config.batch_num, 0, config.training_segment)
         cost = rnn_train(c[0], c[1])
         print("Cost", cost)
