@@ -22,6 +22,7 @@ batch_num = 128
 len_max = 777
 
 x_seq = T.ftensor3()
+x_seq_1 = T.matrix()
 y_hat = T.ftensor3()
 mask = T.ftensor3()
 start = T.scalar()
@@ -63,9 +64,21 @@ def step(x_t,a_tm1,y_tm1):
         y_t = T.dot(a_t,Wo) + bo
         return a_t, y_t
 
+def step_1(x_t_1,a_tm1_1,y_tm1_1):
+        a_t = sigmoid( T.dot(x_t_1[0],Wi) + T.dot(a_tm1_1[0],Wh) + bh[0] )
+        y_t = T.dot(a_t,Wo) + bo[0]
+        return a_t, y_t
+
 [a_seq,y_seq],_ = theano.scan(
                         step,
                         sequences = x_seq,
+                        outputs_info = [ a_0, y_0 ],
+                        truncate_gradient=-1
+                )
+
+[a_seq_1,y_seq_1],_ = theano.scan(
+                        step_1,
+                        sequences = x_seq_1,
                         outputs_info = [ a_0, y_0 ],
                         truncate_gradient=-1
                 )
@@ -99,8 +112,8 @@ rnn_test_cost = theano.function(
 )
 
 rnn_test_y_evaluate = theano.function(
-        inputs= [x_seq],
-        outputs = y_seq
+        inputs= [x_seq_1],
+        outputs = y_seq_1
 )
 
 rnn_test_parm = theano.function(
@@ -227,7 +240,7 @@ try:
             count777 = count777+1
 
         i=i+1
-        print i 
+        #print i 
         mask_1 = []
         for mask_i in range(batch_num):
             mask_1.append( np.ones(wav_len[mask_i]).tolist()+np.zeros(len_max-wav_len[mask_i]).tolist() )
@@ -243,11 +256,11 @@ try:
         print 'cost = ',rnn_test_cost(X,Y,mask)
 
         ######################### check for one epoch #########################
-        '''
+        
         if epoch==1:
             epoch_counter = epoch_counter+1
             print 'epoch_counter',epoch_counter
-            print "COST=", rnn_test_cost(X,Y,mask)
+            print "COST = ", rnn_test_cost(X,Y,mask)
             #print rnn_test_parm()
             err=0.0
             m=0
@@ -308,7 +321,7 @@ try:
                                 Y_test.append(y)
                                 X_test.append(yy)
                     count777_test = count777_test+1;
-                if ((m+train_number) not in wav):
+                if ((m+train_number) not in wav_end):
                     print "FUCKING TWO!!!!"
                     print 'm' ,m
                 if (len(X_test)!=777 or len(Y_test)!=777):
@@ -316,28 +329,9 @@ try:
 
                 m=m+1
                 Ya = rnn_test_y_evaluate(X)
-                #mask_a = np.ones(wave_lengh).tolist()+np.zeros(777-wave_lengh).tolist()
-                #haha  = rnn_test_y_modify(X,mask_a)
-                #if first==1:
-                    #print 'Ya',Ya
-                    #print 'haha',haha
-                    #print 'wave_lengh',wave_lengh
-                    #print 'Ya[0]',Ya[0]
-                    #first = 0
-                #print "wave_lengh",wave_lengh
                 for index in range(wave_lengh):
-                    #if index == wave_lengh-1:
-                    #        print 'input',f_DNNsoft[train_number+test_index+index][0]
-                    #        print 'ans',str(ans[train_number+test_index+index].split('\n')[0])
                     if( c.map(Ya[index]) !=  str(ans[train_number+test_index+index].split('\n')[0]) ):
                         err = err+1
-                        #print Ya[index] 
-                        #print train_number+m-wave_lengh+index
-                        #if(test_index<1000):
-                        #    print "test_name",name[train_number+test_index+index][0],name[train_number+test_index+index][1]
-                        #    print str(ans[train_number+test_index+index].split('\n')[0])
-                        #    print "y_evaluate",c.map(Ya[index])
-                #print m
                 test_index = test_index+wave_lengh
             
             print 'err',err
@@ -345,9 +339,9 @@ try:
             print 'ACC = %f'%(ACC)
             epoch = 0
             counter = 0
-            '''
+            
         ######################### check for one epoch #########################
-        
+
 except KeyboardInterrupt:
     pass
     '''
