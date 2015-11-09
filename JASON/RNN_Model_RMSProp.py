@@ -23,7 +23,7 @@ start = T.scalar()
 PARM = T.matrix()
 
 #################### LOAD PARAMETER #################
-parm_data = file('parameter_RNN_1105.txt','rb')
+parm_data = file('parameter_RNN_1107.txt','rb')
 parm = cPickle.load(parm_data)
 Wi = parm[0] 
 bh = parm[1] 
@@ -36,7 +36,7 @@ Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN)*100 )
 bh = theano.shared( np.zeros(N_HIDDEN) )
 Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT)*100 )
 bo = theano.shared( np.zeros(N_OUTPUT) )
-Wh = theano.shared( np.zeros(N_HIDDEN) )
+Wh = theano.shared( np.zeros( (N_HIDDEN,N_HIDDEN) ) )
 '''
 #sigma = theano.shared(np.random.randn(N_INPUT,N_HIDDEN) )
 #Wi = theano.shared( np.random.normal(0, 0.1, (N_INPUT,N_HIDDEN)) )
@@ -129,29 +129,12 @@ def float_convert(i):
         return np.float32(i)
     except ValueError :
         return i
-'''
-def load_parm_1(PARM):
-    global parameters
-    updates = []
-    for i in range(len(parameters)):
-        updates.append((parameters[i],PARM[i]) )
-    return updates
 
-rnn_load_parm_1 = theano.function(
-        inputs=[PARM],
-        outputs=[],
-        updates=load_parm_1(PARM)
-)
-
-#parm_data = file('parameter_RNN_1105.txt','rb')
-#parm = cPickle.load(parm_data)
-rnn_load_parm_1(parm)
-'''
 ######################################################## testbench part ##########################################
 
 #rnn_load_parm_2(parm)
 #print rnn_test_parm()
-
+'''
 f = open('DNN_softmax.txt','r')
 #f = open('train_wav1.ark','r')
 #f = open('posteriorgram/train.post','r')
@@ -195,6 +178,7 @@ i=0
 epoch_counter = 47
 start=1
 try:
+    print 'aaa'
     while True:
         X = []
         Y = []
@@ -256,14 +240,7 @@ try:
         #print '##############################wav_len' , wav_len
         #print '##############################i' , i
         mask = np.ones(wav_len).tolist()+np.zeros(len_max-wav_len).tolist()
-        '''
-        if(start == 1):
-            rnn_train_0(X,Y,mask)
-        else:
-            rnn_train_1(X,Y,mask)
-        start = 0
-        rnn_train_2(X,Y,mask)
-        '''
+        
         rnn_train_test(X,Y,mask)
         #print "COST=", rnn_test_cost(X,Y,mask)
         #Ya = rnn_test_y_evaluate(X)
@@ -277,47 +254,7 @@ try:
             m=0
             test_index=0
             first = 1
-            '''
-            while(m<train_number):
-                count777=0
-                X = []
-                flag_wav_end = 0
-                flag_data_end = 0
-                wav_len = 0
-                while(count777<len_max):
-                    if( m in wav):
-                        if flag_wav_end==0:
-                            X.append(f_DNNsoft[m][1:49])
-                            flag_wav_end = 1
-                            wav_len = int(name[m][2])
-                        else:
-                            x = [0]*48
-                            X.append(x) 
-                    else:
-                        X.append(f_DNNsoft[m][1:49])
-                        m=m+1
-                    count777 = count777+1
-                m=m+1
-                #print 'len(X)',len(X)
-                Ya = rnn_test_y_evaluate(X)
-                print '###############len(Ya)',len(Ya)
-                for index in range(wav_len):
-                    #print 'Ya[index]',Ya[index]
-                    print 'c.map(Ya[index])',c.map(Ya[index])
-                    print 'ANS',str(ans[test_index+index].split('\n')[0])
-                    if( c.map(Ya[index]) !=  str(ans[test_index+index].split('\n')[0]) ):
-                        err = err+1.0
-                    #else:
-                    #    pdb.set_trace()
-                test_index = test_index+wav_len
-
-            print 'err',err
-            ACC = 1.0-err/train_number
-            print 'ACC = %f'%(ACC)
-            epoch = 0
-            #ACC = err / train_number
-            #print "ACC",ACC
-            '''
+          
             while(m<validation_num):
                 X_test=[]
                 Y_test=[]
@@ -368,7 +305,7 @@ try:
                     print 'len wrong!!'
 
                 m=m+1
-                Ya = rnn_test_y_evaluate(X)
+                Ya = rnn_test_y_evaluate(X_test)
                 #mask_a = np.ones(wave_lengh).tolist()+np.zeros(777-wave_lengh).tolist()
                 #haha  = rnn_test_y_modify(X,mask_a)
                 #if first==1:
@@ -401,39 +338,34 @@ try:
             
 except KeyboardInterrupt:
     pass
-    '''
-err = 0.0
-for index in range(474):
-    #print 'Ya[index]',Ya[index]
-
-    #print 'c.map(Ya[index])',c.map(Ya[index])
-    #print Ya[index]
-    #print 'ANS',str(ans[index].split('\n')[0])
-    if( c.map(Ya[index]) !=  str(ans[index].split('\n')[0]) ):
-        err = err+1.0
-print 1-(err / 477.0)
-'''
+   
 f.close()
 ans_data.close()
 
-f_P = file('parameter_RNN_1105_1.txt', 'wb')
+f_P = file('parameter_RNN_1107.txt', 'wb')
 cPickle.dump(parameters, f_P, protocol=cPickle.HIGHEST_PROTOCOL)
 f_P.close()
 '''
 ######################## test ############################
-parm_data = file('parameter_W_RNN.txt','rb')
-parm = cPickle.load(parm_data)
-load_parm(parm)
+f = open('DNN_test_softmax.txt','r')
+test_ans = open('RNN_test_ans_1107_1.csv','w')
 
-test_ans = open('RNN_test_ans_1102.csv','w')
+f_test = []
+name = []
+for line in f:
+    input_x = line.split()
+    input_x = [float_convert(i) for i in input_x]
+    name_x = input_x[0].split('_')
+    name.append(name_x)
+    f_test.append(input_x)
 
-
+test_num = len(f_test)
 test_c = MAP()
 Y=None
 m=0
 test_index=0
 test_ans.write('Id,Prediction\n')
-while(m<validation_num):
+while(m<test_num):
     X_test=[]
     Y_test=[]
     flag_data_end_test = 0
@@ -441,49 +373,49 @@ while(m<validation_num):
     count777_test = 0
     wave_lengh = 0;
     while (count777_test<777) :
-        if(m==validation_num-1):
+        if(m==test_num-1):
             if(flag_data_end_test==0):
-                typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                y=[0]*48
-                y[typeidx]=1
-                Y_test.append(y)
-                X_test.append(f_DNNsoft[train_number+m][1:49])
+                #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
+                #y=[0]*48
+                #y[typeidx]=1
+                #Y_test.append(y)
+                X_test.append(f_test[m][1:49])
                 flag_data_end_test = 1
-                wave_lengh = int(name[train_number+m][2])
+                wave_lengh = int(name[m][2])
             else:
                 y=[0]*48
-                Y_test.append(y)
+                #Y_test.append(y)
                 X_test.append(y)
         else:
-            if(name[train_number+m][0]==name[train_number+m+1][0] and name[train_number+m][1]==name[train_number+m+1][1]) :
-                typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                y=[0]*48
-                y[typeidx]=1
-                Y_test.append(y)
-                X_test.append(f_DNNsoft[train_number+m][1:49])
+            if(name[m][0]==name[m+1][0] and name[m][1]==name[m+1][1]) :
+                #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
+                #y=[0]*48
+                #y[typeidx]=1
+                #Y_test.append(y)
+                X_test.append(f_test[m][1:49])
                 m=m+1
             else: 
                 if(flag_wav_end_test==0):
-                    typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                    y=[0]*48
-                    y[typeidx]=1
-                    Y_test.append(y)
-                    X_test.append(f_DNNsoft[train_number+m][1:49])
+                    #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
+                    #y=[0]*48
+                    #y[typeidx]=1
+                    #Y_test.append(y)
+                    X_test.append(f_test[m][1:49])
                     flag_wav_end_test = 1
-                    wave_lengh = int(name[train_number+m][2])
+                    wave_lengh = int(name[m][2])
                 else:
                     y=[0]*48
-                    Y_test.append(y)
+                    #Y_test.append(y)
                     X_test.append(y)
         count777_test = count777_test+1;
     m=m+1
-    Ya = rnn_test_y_evaluate(X)
+    Ya = rnn_test_y_evaluate(X_test)
     for index in range(wave_lengh):
-        test_ans.write(f_DNNsoft[train_number+test_index+index][0])
+        test_ans.write(f_test[test_index+index][0])
         test_ans.write(',')
-        test_ans.write(test_c.map(Ya[index],1).split('\n')[0])
-        if m!=validation_num-1-1:
+        test_ans.write(test_c.map(Ya[index],0).split('\n')[0])
+        if m!=test_num-1-1:
             test_ans.write('\n')
     test_index = test_index+wave_lengh
 
-'''
+

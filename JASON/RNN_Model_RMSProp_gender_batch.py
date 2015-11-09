@@ -11,25 +11,24 @@ import pdb
 __author__= 'JasonWu'
 
 # Number of units in the hidden (recurrent) layer
-N_HIDDEN = 128
+N_HIDDEN = 512
 # input
 N_INPUT = 49 # 48 + 1 (male = 1, female = 0)
 # output
 N_OUTPUT = 48
 #mini batch
-batch_num = 64
+batch_num = 128
 #sentence max length
 len_max = 777
 
 x_seq = T.ftensor3()
-x_seq_1 = T.matrix()
 y_hat = T.ftensor3()
 mask = T.ftensor3()
 start = T.scalar()
 PARM = T.matrix()
 '''
 #################### LOAD PARAMETER #################
-parm_data = file('parameter_RNN_1105.txt','rb')
+parm_data = file('parameter_RNN_1108_1.txt','rb')
 parm = cPickle.load(parm_data)
 Wi = parm[0] 
 bh = parm[1] 
@@ -38,54 +37,43 @@ bo = parm[3]
 Wh = parm[4] 
 '''
 
-Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN) )
-bh = np.zeros(N_HIDDEN)
+Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN).astype(dtype = theano.config.floatX) )
+bh = np.zeros(N_HIDDEN).astype(dtype = theano.config.floatX)
 bh = theano.shared( np.tile(bh,(batch_num, 1)) )
-Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT))
-bo = np.zeros(N_OUTPUT)
+Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT).astype(dtype = theano.config.floatX) )
+bo = np.zeros(N_OUTPUT).astype(dtype = theano.config.floatX)
 bo = theano.shared( np.tile(bo,(batch_num, 1)) )
-Wh = theano.shared( np.zeros( (N_HIDDEN,N_HIDDEN)  ) )
+Wh = theano.shared( np.identity( N_HIDDEN  ).astype(dtype = theano.config.floatX) )
 
 #sigma = theano.shared(np.random.randn(N_INPUT,N_HIDDEN) )
 #Wi = theano.shared( np.random.normal(0, 0.1, (N_INPUT,N_HIDDEN)) )
 #Wo = theano.shared( np.random.normal(0, 0.1, (N_HIDDEN,N_OUTPUT)) )
 parameters = [Wi,bh,Wo,bo,Wh]
 
-a_0 = np.zeros(N_HIDDEN)
+a_0 = np.zeros(N_HIDDEN).astype(dtype = theano.config.floatX)
 a_0 = theano.shared( np.tile(a_0,(batch_num,1)) )
-y_0 = np.zeros(N_OUTPUT)
+y_0 = np.zeros(N_OUTPUT).astype(dtype = theano.config.floatX)
 y_0 = theano.shared( np.tile(y_0,(batch_num,1)) )
 
-a_1 = theano.shared( np.zeros(N_HIDDEN) )
-y_1 = theano.shared( np.zeros(N_HIDDEN) )
 
 def sigmoid(z):
+    #return z*(z>0)
+    #return T.clip(z,0,10000000)
     return 1/(1+T.exp(-z))
 
-def step(x_t,a_tm1,y_tm1):
-        a_t = sigmoid( T.dot(x_t,Wi) + T.dot(a_tm1,Wh) + bh )
-        y_t = T.dot(a_t,Wo) + bo
-        return a_t, y_t
+def step(z_t,a_tm1):
+    return sigmoid( z_t + T.dot(a_tm1,Wh) + bh )
 
-def step_1(x_t_1,a_tm1_1,y_tm1_1):
-        a_t = sigmoid( T.dot(x_t_1,Wi) + T.dot(a_tm1_1,Wh) + bh[0] )
-        y_t = T.dot(a_t,Wo) + bo[0]
-        return a_t, y_t
+z_seq = T.dot (x_seq, Wi)
 
-[a_seq,y_seq],_ = theano.scan(
+a_seq,_ = theano.scan(
                         step,
-                        sequences = x_seq,
-                        outputs_info = [ a_0, y_0 ],
+                        sequences = z_seq,
+                        outputs_info =  a_0,  
                         truncate_gradient=-1
                 )
 
-[a_seq_1,y_seq_1],_ = theano.scan(
-                        step_1,
-                        sequences = x_seq_1,
-                        outputs_info = [ a_1, y_1 ],
-                        truncate_gradient=-1
-                )
-
+y_seq = T.dot(a_seq,Wo)+bo
 
 y_seq_modify =  (y_seq*mask) 
 cost = (( y_seq_modify - y_hat )**2 ).sum() / batch_num
@@ -106,7 +94,7 @@ def RMSprop(cost, params, lr=0.001, rho=0.9, epsilon=1e-6):
         gradient_scaling = T.sqrt(acc_new + epsilon)
         g = g / gradient_scaling
         updates.append((acc, acc_new))
-        updates.append((p, p - lr * g))
+        updates.append((p, p - lr * T.clip(g,-10,10) ))
     return updates
 
 rnn_test_cost = theano.function(
@@ -115,8 +103,8 @@ rnn_test_cost = theano.function(
 )
 
 rnn_test_y_evaluate = theano.function(
-        inputs= [x_seq_1],
-        outputs = y_seq_1
+        inputs= [x_seq],
+        outputs = y_seq
 )
 
 rnn_test_parm = theano.function(
@@ -137,6 +125,10 @@ def float_convert(i):
         return i
 
 ######################################################## testbench part ##########################################
+
+
+train_number = 1091215#1095820# #1124823
+validation_num = 1124823-1091215
 
 f = open('DNN_softmax.txt','r')
 ans_data = open('answer_map.txt','r')
@@ -160,30 +152,36 @@ for i in range( len(name) ):
             wav_end.append(i)
     else:
         wav_end.append(i)
-wav_start = []
-for i in range( len(name) ):
+
+wav_start_train = []
+for i in range( train_number ):
     if int(name[i][2]) == 1:
-        wav_start.append(i)
-sentence_number = len(wav_start)
+        wav_start_train.append(i)
+
+wav_start_test = []
+for i in range( validation_num ):
+    if int(name[train_number + i ][2]) == 1:
+        wav_start_test.append((train_number+i))
+
+sentence_number = len(wav_start_train)
+sentence_number_test = len(wav_start_test)
 run_time = sentence_number/batch_num
+#print 'sentence_number_test',sentence_number_test
 
 anstype = ["aa", "ae", "ah", "ao", "aw", "ax", "ay", "b", "ch", "cl", "d", "dh", "dx", "eh", "el"
                , "en", "epi", "er", "ey", "f", "g", "hh", "ih", "ix", "iy", "jh", "k", "l", "m", "ng"
                , "n", "ow", "oy", "p", "r", "sh", "sil", "s", "th", "t", "uh", "uw", "vcl", "v", "w"
                , "y", "zh", "z"]
 
-train_number = 1091215 #1124823
-validation_num = 1124823-1091215
-
-len_max = 777
-
 c = MAP()
 ACC = 0.0
 epoch=0
 mask = []
-i=56
+i=0
 epoch_counter = 0
 start=1
+ACC_last = 0.0
+parameters_last = []
 
 try:
     while True:
@@ -200,6 +198,7 @@ try:
         flag_wav_end = []
         wav_len = []
         for rand_num in range(batch_num):
+            a = randrange(0,sentence_number)
             num.append ( randrange(0,sentence_number) )
             count_len.append( 0 ) 
             flag_wav_end.append(0)
@@ -209,19 +208,19 @@ try:
             X_batch = []
             Y_batch = []
             for bi in range(batch_num):
-                now_i = wav_start[num[bi]]
+                now_i = wav_start_train[num[bi]]
                 if( (count_len[bi]+now_i) in wav_end):
                     if flag_wav_end[bi]==0:
                         flag_wav_end[bi] = 1
                         if(name[count_len[bi]+now_i][0][0] == 'f'):
-                            X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]))
+                            X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
                         else:
-                            X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]))
+                            X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
                         typeidx = anstype.index(str(ans[count_len[bi]+now_i].split('\n')[0]))                
                         y=[0]*48
                         y[typeidx]=1
                         Y_batch.append(y)
-                        wav_len[bi] = count_len[bi]
+                        wav_len[bi] = count_len[bi]+1
                     else:
                         y=[0]*48
                         yy = [0]*49
@@ -229,9 +228,9 @@ try:
                         X_batch.append(yy)
                 else:
                     if(name[count_len[bi]+now_i][0][0] == 'f'):
-                        X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]))
+                        X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
                     else:
-                        X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]))
+                        X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
                     typeidx = anstype.index(str(ans[count_len[bi]+now_i].split('\n')[0]))                
                     y=[0]*48
                     y[typeidx]=1
@@ -241,9 +240,8 @@ try:
             X.append(X_batch)
             Y.append(Y_batch)
             count777 = count777+1
-
         i=i+1
-        #print i 
+
         mask_1 = []
         for mask_i in range(batch_num):
             mask_1.append( np.ones(wav_len[mask_i]).tolist()+np.zeros(len_max-wav_len[mask_i]).tolist() )
@@ -255,21 +253,120 @@ try:
             mask_2 = mask_2.T
             mask.append(mask_2)
 
+        parameters_last = parameters
         rnn_train_test(X,Y,mask)
-        print 'cost = ',rnn_test_cost(X,Y,mask)
-
+        if parameters[0].get_value()[0][0]!=parameters[0].get_value()[0][0]:
+            print parameters[0].get_value()[0][0]
+            print 'BOMB BOMB BOMB BOMB BOMB BOMB BOMB BOMB BOMB'
+            f_P_bomb = file('parameter_RNN_batch_1110_bombPrevent.txt', 'wb')
+            cPickle.dump(parameters_last, f_P_bomb, protocol=cPickle.HIGHEST_PROTOCOL)
+            f_P_bomb.close()
+            break;
+        #print 'cost = ',rnn_test_cost(X,Y,mask)
+        
         ######################### check for one epoch #########################
         
         if epoch==1:
             epoch_counter = epoch_counter+1
             print 'epoch_counter',epoch_counter
-            print "COST = ", rnn_test_cost(X,Y,mask)
+            print "############## COST = ", rnn_test_cost(X,Y,mask)
             #print rnn_test_parm()
             err=0.0
             m=0
             test_index=0
             first = 1
+            X=[]
+            Y=[]
+            count777 = 0
+            num = []
+            count_len = []
+            flag_wav_end = []
+            wav_len = []
+
+            for rand_num in range(batch_num):
+                if (rand_num) >= sentence_number_test:
+                    num.append(sentence_number_test-1)
+                else:
+                    num.append ( rand_num )
+                count_len.append( 0 ) 
+                flag_wav_end.append(0)
+                wav_len.append(0)
+            #print 'num',num
+
+            while(count777<len_max):
+                X_batch = []
+                Y_batch = []
+                for bi in range(batch_num):
+                    now_i = wav_start_test[num[bi]]
+                    if( (count_len[bi]+now_i) in wav_end):
+                        if flag_wav_end[bi]==0:
+                            flag_wav_end[bi] = 1
+                            if(name[count_len[bi]+now_i][0][0] == 'f'):
+                                X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                            else:
+                                X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                            typeidx = anstype.index(str(ans[count_len[bi]+now_i].split('\n')[0]))                
+                            y=[0]*48
+                            y[typeidx]=1
+                            Y_batch.append(y)
+                            wav_len[bi] = count_len[bi]+1
+                        else:
+                            y=[0]*48
+                            yy = [0]*49
+                            Y_batch.append(y)
+                            X_batch.append(yy)
+                    else:
+                        if(name[count_len[bi]+now_i][0][0] == 'f'):
+                            X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                        else:
+                            X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                        typeidx = anstype.index(str(ans[count_len[bi]+now_i].split('\n')[0]))                
+                        y=[0]*48
+                        y[typeidx]=1
+                        Y_batch.append(y)
+                        count_len[bi] = count_len[bi]+1
+    
+                X.append(X_batch)
+                Y.append(Y_batch)
+                count777 = count777+1
+
+            mask_1 = []
+            for mask_i in range(batch_num):
+                mask_1.append( np.ones(wav_len[mask_i]).tolist()+np.zeros(len_max-wav_len[mask_i]).tolist() )
+            mask_1 = np.array(mask_1).T
+
+            mask=[]
+            for ii in range(len_max):
+                mask_2=np.tile(mask_1[ii],(N_OUTPUT,1))
+                mask_2 = mask_2.T
+                mask.append(mask_2)
+
+            Ya = rnn_test_y_evaluate(X)
             
+            #print 'len(Ya)',len(Ya)
+            #print 'len(Ya[0])',len(Ya[0])
+            #print 'len(Ya[0][0])',len(Ya[0][0])
+            Ya_new = []
+            #pdb.set_trace()
+            for index_i in range(sentence_number_test):
+                Ya_new_temp = []
+                for index in range(len_max):
+                    Ya_new_temp.append (Ya[index][index_i])
+                Ya_new.append(Ya_new_temp)
+
+            for index in range(sentence_number_test):
+                for index_b in range( wav_len[index] ):
+                    now_i = wav_start_test[num[index]]
+                    if( c.map(Ya_new[index][index_b]) !=  str(ans[now_i+index_b].split('\n')[0]) ):
+                        err = err + 1.0
+            #print 'sentence_number_test',sentence_number_test
+            #print 'err',err
+            ACC = 1.0-err/validation_num
+            print 'ACC = %f'%(ACC)
+            epoch = 0
+            
+        ACC_last = ACC
+        '''
             while(m<validation_num):
                 X_test=[]
                 Y_test=[]
@@ -331,6 +428,8 @@ try:
                     print 'len wrong!!'
 
                 m=m+1
+                print len(X_test)
+                print len(X_test[0])
                 Ya = rnn_test_y_evaluate(X_test)
                 for index in range(wave_lengh):
                     if( c.map(Ya[index]) !=  str(ans[train_number+test_index+index].split('\n')[0]) ):
@@ -342,7 +441,7 @@ try:
             print 'ACC = %f'%(ACC)
             epoch = 0
             counter = 0
-            
+        '''
         ######################### check for one epoch #########################
 
 except KeyboardInterrupt:
@@ -362,74 +461,8 @@ print 1-(err / 477.0)
 f.close()
 ans_data.close()
 
-f_P = file('parameter_RNN_1107.txt', 'wb')
+f_P = file('parameter_RNN_batch_1110.txt', 'wb')
 cPickle.dump(parameters, f_P, protocol=cPickle.HIGHEST_PROTOCOL)
 f_P.close()
-'''
+
 ######################## test ############################
-parm_data = file('parameter_W_RNN.txt','rb')
-parm = cPickle.load(parm_data)
-load_parm(parm)
-
-test_ans = open('RNN_test_ans_1102.csv','w')
-
-
-test_c = MAP()
-Y=None
-m=0
-test_index=0
-test_ans.write('Id,Prediction\n')
-while(m<validation_num):
-    X_test=[]
-    Y_test=[]
-    flag_data_end_test = 0
-    flag_wav_end_test = 0
-    count777_test = 0
-    wave_lengh = 0;
-    while (count777_test<777) :
-        if(m==validation_num-1):
-            if(flag_data_end_test==0):
-                typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                y=[0]*48
-                y[typeidx]=1
-                Y_test.append(y)
-                X_test.append(f_DNNsoft[train_number+m][1:49])
-                flag_data_end_test = 1
-                wave_lengh = int(name[train_number+m][2])
-            else:
-                y=[0]*48
-                Y_test.append(y)
-                X_test.append(y)
-        else:
-            if(name[train_number+m][0]==name[train_number+m+1][0] and name[train_number+m][1]==name[train_number+m+1][1]) :
-                typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                y=[0]*48
-                y[typeidx]=1
-                Y_test.append(y)
-                X_test.append(f_DNNsoft[train_number+m][1:49])
-                m=m+1
-            else: 
-                if(flag_wav_end_test==0):
-                    typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                    y=[0]*48
-                    y[typeidx]=1
-                    Y_test.append(y)
-                    X_test.append(f_DNNsoft[train_number+m][1:49])
-                    flag_wav_end_test = 1
-                    wave_lengh = int(name[train_number+m][2])
-                else:
-                    y=[0]*48
-                    Y_test.append(y)
-                    X_test.append(y)
-        count777_test = count777_test+1;
-    m=m+1
-    Ya = rnn_test_y_evaluate(X)
-    for index in range(wave_lengh):
-        test_ans.write(f_DNNsoft[train_number+test_index+index][0])
-        test_ans.write(',')
-        test_ans.write(test_c.map(Ya[index],1).split('\n')[0])
-        if m!=validation_num-1-1:
-            test_ans.write('\n')
-    test_index = test_index+wave_lengh
-
-'''

@@ -29,7 +29,7 @@ Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN) )
 bh = theano.shared( np.zeros(N_HIDDEN) )
 Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT) )
 bo = theano.shared( np.zeros(N_OUTPUT) )
-Wh = theano.shared( np.zeros(N_HIDDEN) )
+Wh = theano.shared( np.zeros( (N_HIDDEN,N_HIDDEN) ) )
 #Wi = theano.shared( np.random.normal(0, 0.1, (N_INPUT,N_HIDDEN)) )
 #Wo = theano.shared( np.random.normal(0, 0.1, (N_HIDDEN,N_OUTPUT)) )
 parameters = [Wi,bh,Wo,bo,Wh]
@@ -304,7 +304,7 @@ try:
                     print 'len wrong!!'
 
                 m=m+1
-                Ya = rnn_test_y_evaluate(X)
+                Ya = rnn_test_y_evaluate(X_test)
                 #mask_a = np.ones(wave_lengh).tolist()+np.zeros(777-wave_lengh).tolist()
                 #haha  = rnn_test_y_modify(X,mask_a)
                 #if first==1:
