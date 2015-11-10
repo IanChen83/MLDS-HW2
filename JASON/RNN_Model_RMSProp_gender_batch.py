@@ -11,40 +11,42 @@ import pdb
 __author__= 'JasonWu'
 
 # Number of units in the hidden (recurrent) layer
-N_HIDDEN = 512
+N_HIDDEN = 128
 # input
 N_INPUT = 49 # 48 + 1 (male = 1, female = 0)
 # output
 N_OUTPUT = 48
 #mini batch
-batch_num = 128
+batch_num = 1
 #sentence max length
 len_max = 777
+
+LR = 0.001
 
 x_seq = T.ftensor3()
 y_hat = T.ftensor3()
 mask = T.ftensor3()
 start = T.scalar()
 PARM = T.matrix()
-'''
+
 #################### LOAD PARAMETER #################
-parm_data = file('parameter_RNN_1108_1.txt','rb')
+parm_data = file('parameter_RNN_batch_1110_1.txt','rb')
 parm = cPickle.load(parm_data)
 Wi = parm[0] 
 bh = parm[1] 
 Wo = parm[2] 
 bo = parm[3] 
 Wh = parm[4] 
-'''
 
+'''
 Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN).astype(dtype = theano.config.floatX) )
 bh = np.zeros(N_HIDDEN).astype(dtype = theano.config.floatX)
 bh = theano.shared( np.tile(bh,(batch_num, 1)) )
 Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT).astype(dtype = theano.config.floatX) )
 bo = np.zeros(N_OUTPUT).astype(dtype = theano.config.floatX)
 bo = theano.shared( np.tile(bo,(batch_num, 1)) )
-Wh = theano.shared( np.identity( N_HIDDEN  ).astype(dtype = theano.config.floatX) )
-
+Wh = theano.shared( np.zeros( (N_HIDDEN,N_HIDDEN ) ).astype(dtype = theano.config.floatX) )
+'''
 #sigma = theano.shared(np.random.randn(N_INPUT,N_HIDDEN) )
 #Wi = theano.shared( np.random.normal(0, 0.1, (N_INPUT,N_HIDDEN)) )
 #Wo = theano.shared( np.random.normal(0, 0.1, (N_HIDDEN,N_OUTPUT)) )
@@ -78,8 +80,9 @@ y_seq = T.dot(a_seq,Wo)+bo
 y_seq_modify =  (y_seq*mask) 
 cost = (( y_seq_modify - y_hat )**2 ).sum() / batch_num
 
-#y_seq_modify_1 = (y_seq.T*mask).T 
-#y_seq_modify = (T.exp(y_seq_modify_1).T/ T.sum( T.exp(y_seq_modify_1) , axis=1)).T
+#y_seq_modify_1 = (y_seq*mask)
+#aa = T.reshape(T.sum( T.exp(y_seq_modify_1) , axis=2), [1,batch_num*len_max] )[0]
+#y_seq_modify = (T.exp(y_seq_modify_1)/ ).T
 #cost = -1*((T.log(y_seq_modify)*y_hat).sum())
 #y_seq_modify = (y_seq.T*mask).T 
 #cost = T.sum( ( y_seq_modify - y_hat )**2 ) 
@@ -115,7 +118,7 @@ rnn_test_parm = theano.function(
 rnn_train_test = theano.function(
         inputs=[x_seq,y_hat,mask],
         outputs=cost,
-        updates=RMSprop(cost, parameters, lr=0.001, rho=0.9, epsilon=1e-6)
+        updates=RMSprop(cost, parameters, LR, rho=0.9, epsilon=1e-6)
 )
 
 def float_convert(i):
@@ -274,91 +277,87 @@ try:
             err=0.0
             m=0
             test_index=0
-            first = 1
-            X=[]
-            Y=[]
-            count777 = 0
-            num = []
-            count_len = []
-            flag_wav_end = []
-            wav_len = []
+            now_rand_num = 0
 
-            for rand_num in range(batch_num):
-                if (rand_num) >= sentence_number_test:
-                    num.append(sentence_number_test-1)
-                else:
-                    num.append ( rand_num )
-                count_len.append( 0 ) 
-                flag_wav_end.append(0)
-                wav_len.append(0)
-            #print 'num',num
+            while(now_rand_num<sentence_number_test):
 
-            while(count777<len_max):
-                X_batch = []
-                Y_batch = []
-                for bi in range(batch_num):
-                    now_i = wav_start_test[num[bi]]
-                    if( (count_len[bi]+now_i) in wav_end):
-                        if flag_wav_end[bi]==0:
-                            flag_wav_end[bi] = 1
+                X=[]
+                Y=[]
+                count777 = 0
+                num = []
+                count_len = []
+                flag_wav_end = []
+                wav_len = []
+                this_batch_size = 0
+
+                for rand_num in range(batch_num):
+                    if (now_rand_num+rand_num) >= sentence_number_test:
+                        num.append(sentence_number_test-1)
+                        this_batch_size = sentence_number_test-now_rand_num
+                    else:
+                        num.append ( now_rand_num+rand_num )
+                        this_batch_size = rand_num
+                    count_len.append( 0 ) 
+                    flag_wav_end.append(0)
+                    wav_len.append(0)
+                now_rand_num = now_rand_num+batch_num
+                #print 'num',num
+
+                while(count777<len_max):
+                    X_batch = []
+                    Y_batch = []
+                    for bi in range(batch_num):
+                        now_i = wav_start_test[num[bi]]
+                        if( (count_len[bi]+now_i) in wav_end):
+                            if flag_wav_end[bi]==0:
+                                flag_wav_end[bi] = 1
+                                if(name[count_len[bi]+now_i][0][0] == 'f'):
+                                    X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                                else:
+                                    X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                                #typeidx = anstype.index(str(ans[count_len[bi]+now_i].split('\n')[0]))                
+                                #y=[0]*48
+                                #y[typeidx]=1
+                                #Y_batch.append(y)
+                                wav_len[bi] = count_len[bi]+1
+                            else:
+                                y=[0]*48
+                                yy = [0]*49
+                                #Y_batch.append(y)
+                                X_batch.append(yy)
+                        else:
                             if(name[count_len[bi]+now_i][0][0] == 'f'):
                                 X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
                             else:
                                 X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
-                            typeidx = anstype.index(str(ans[count_len[bi]+now_i].split('\n')[0]))                
-                            y=[0]*48
-                            y[typeidx]=1
-                            Y_batch.append(y)
-                            wav_len[bi] = count_len[bi]+1
-                        else:
-                            y=[0]*48
-                            yy = [0]*49
-                            Y_batch.append(y)
-                            X_batch.append(yy)
-                    else:
-                        if(name[count_len[bi]+now_i][0][0] == 'f'):
-                            X_batch.append(np.array([0]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
-                        else:
-                            X_batch.append(np.array([1]+f_DNNsoft[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
-                        typeidx = anstype.index(str(ans[count_len[bi]+now_i].split('\n')[0]))                
-                        y=[0]*48
-                        y[typeidx]=1
-                        Y_batch.append(y)
-                        count_len[bi] = count_len[bi]+1
-    
-                X.append(X_batch)
-                Y.append(Y_batch)
-                count777 = count777+1
+                            #typeidx = anstype.index(str(ans[count_len[bi]+now_i].split('\n')[0]))                
+                            #y=[0]*48
+                            #y[typeidx]=1
+                            #Y_batch.append(y)
+                            count_len[bi] = count_len[bi]+1
+        
+                    X.append(X_batch)
+                    Y.append(Y_batch)
+                    count777 = count777+1
 
-            mask_1 = []
-            for mask_i in range(batch_num):
-                mask_1.append( np.ones(wav_len[mask_i]).tolist()+np.zeros(len_max-wav_len[mask_i]).tolist() )
-            mask_1 = np.array(mask_1).T
+                Ya = rnn_test_y_evaluate(X)
+                
+                #print 'len(Ya)',len(Ya)
+                #print 'len(Ya[0])',len(Ya[0])
+                #print 'len(Ya[0][0])',len(Ya[0][0])
+                Ya_new = []
+                #pdb.set_trace()
+                for index_i in range(this_batch_size):
+                    Ya_new_temp = []
+                    for index in range(len_max):
+                        Ya_new_temp.append (Ya[index][index_i])
+                    Ya_new.append(Ya_new_temp)
 
-            mask=[]
-            for ii in range(len_max):
-                mask_2=np.tile(mask_1[ii],(N_OUTPUT,1))
-                mask_2 = mask_2.T
-                mask.append(mask_2)
-
-            Ya = rnn_test_y_evaluate(X)
-            
-            #print 'len(Ya)',len(Ya)
-            #print 'len(Ya[0])',len(Ya[0])
-            #print 'len(Ya[0][0])',len(Ya[0][0])
-            Ya_new = []
-            #pdb.set_trace()
-            for index_i in range(sentence_number_test):
-                Ya_new_temp = []
-                for index in range(len_max):
-                    Ya_new_temp.append (Ya[index][index_i])
-                Ya_new.append(Ya_new_temp)
-
-            for index in range(sentence_number_test):
-                for index_b in range( wav_len[index] ):
-                    now_i = wav_start_test[num[index]]
-                    if( c.map(Ya_new[index][index_b]) !=  str(ans[now_i+index_b].split('\n')[0]) ):
-                        err = err + 1.0
+                for index in range(this_batch_size):
+                    for index_b in range( wav_len[index] ):
+                        now_i = wav_start_test[num[index]]
+                        if( c.map(Ya_new[index][index_b]) !=  str(ans[now_i+index_b].split('\n')[0]) ):
+                            err = err + 1.0
             #print 'sentence_number_test',sentence_number_test
             #print 'err',err
             ACC = 1.0-err/validation_num
@@ -461,7 +460,7 @@ print 1-(err / 477.0)
 f.close()
 ans_data.close()
 
-f_P = file('parameter_RNN_batch_1110.txt', 'wb')
+f_P = file('parameter_RNN_batch_1110_2.txt', 'wb')
 cPickle.dump(parameters, f_P, protocol=cPickle.HIGHEST_PROTOCOL)
 f_P.close()
 
