@@ -1,4 +1,4 @@
-f = open('try1.csv','r')
+f = open('try2.csv','r')
 f_map = open('48_idx_chr.map_b','r')
 
 f_data = []
@@ -17,7 +17,7 @@ for line in f_map:
 	f_map_data_elem_0.append(temp[0].split('\n')[0])
 
 
-f_trim = open('trim_ans_original65.csv','w')
+f_trim = open('trim_ans_1111.csv','w')
 
 
 f_trim.write('id,phone_sequence')

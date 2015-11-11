@@ -17,21 +17,22 @@ N_INPUT = 49 # 48 + 1 (male = 1, female = 0)
 # output
 N_OUTPUT = 48
 #mini batch
-batch_num = 1
+batch_num = 10
 #sentence max length
-len_max = 777
+len_max = 200
 
-x_seq = T.matrix()
-y_hat = T.matrix()
-mask = T.matrix()
+
+x_seq = T.ftensor3()
+y_hat = T.ftensor3()
+mask = T.ftensor3()
 start = T.scalar()
 PARM = T.matrix()
 
 #################### LOAD PARAMETER #################
-parm_data = file('parameter_RNN_1108_1.txt','rb')
+parm_data = file('parameter_RNN_batch_1111_1.txt','rb')
 parm = cPickle.load(parm_data)
 Wi = parm[0].get_value() 
-bh = parm[1].get_value()
+bh = parm[1].get_value() #need mean
 Wo = parm[2].get_value() 
 bo = parm[3].get_value()
 Wh = parm[4].get_value() 
@@ -43,9 +44,9 @@ print bo
 print Wh
 
 Wi = theano.shared(Wi)
-bh = theano.shared(bh[0])
+bh = theano.shared(bh)
 Wo= theano.shared(Wo)
-bo = theano.shared(bo[0])
+bo = theano.shared(bo)
 Wh = theano.shared(Wh)
 
 #sigma = theano.shared(np.random.randn(N_INPUT,N_HIDDEN) )
@@ -134,8 +135,8 @@ def float_convert(i):
 
 ######################## test ############################
 
-test_f = open('DNN_test_RealBaseLine.txt','r')
-test_ans = open('RNN_test_ans_1109.csv','w')
+test_f = open('DNN_softmax_test.txt','r')
+test_ans = open('RNN_test_ans_1111.csv','w')
 
 f_test = []
 name = []
@@ -147,69 +148,126 @@ for line in test_f:
     f_test.append(input_x)
 
 test_num = len(f_test)
-test_c = MAP()
+
+wav_end_test=[]
+for i in range( test_num ):
+    if i != test_num-1:
+        if int(name[ i +1 ][2]) != (int(name[ i ][2])+1) :
+            wav_end_test.append((i))
+    else:
+        wav_end_test.append(i)
+
+wav_end=[]
+for i in range( len(name) ):
+    if i != len(name)-1:
+        if int(name[i][2])+1 != int(name[i+1][2]):
+            wav_end.append(i)
+    else:
+        wav_end.append(i)
+
+
+c = MAP()
 Y=None
 m=0
-test_index=0
 test_ans.write('Id,Prediction\n')
-while(m<test_num):
-    X_test=[]
-    Y_test=[]
-    flag_data_end_test = 0
-    flag_wav_end_test = 0
-    count777_test = 0
-    wave_lengh = 0;
-    while (count777_test<777) :
-        if(m==test_num-1):
-            if(flag_data_end_test==0):
-                #typeidx = anstype.index(str(ans[m].split('\n')[0]))
-                #y=[0]*48
-                #y[typeidx]=1
-                #Y_test.append(y)
-                if(name[m][0][0] == 'f'):
-                    X_test.append(np.array([0]+f_test[m][1:49]).astype(dtype = theano.config.floatX))
-                else:
-                    X_test.append(np.array([1]+f_test[m][1:49]).astype(dtype = theano.config.floatX))
-                flag_data_end_test = 1
-                wave_lengh = int(name[m][2])
-            else:
-                y=[0]*49
-                #Y_test.append(y)
-                X_test.append(y)
+
+
+err=0.0
+m=0
+test_index=0
+now_rand_num = 0
+
+now_test_time = 0
+wav_count = 0 
+end_test = 0
+
+while(end_test==0):
+    X=[]
+    Y=[]
+    count777 = 0
+    num = []
+    count_len = []
+    flag_wav_end = []
+    wav_len = []
+    this_batch_size = batch_num
+    rand_num = 0
+
+    while(rand_num<batch_num):
+        if wav_end_test[wav_count]>len_max+m-1:
+            num.append(m)
+            m = m + len_max
+            rand_num = rand_num+1
         else:
-            if(name[m][0]==name[m+1][0] and name[m][1]==name[m+1][1]) :
-                #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                #y=[0]*48
-                #y[typeidx]=1
-                #Y_test.append(y)
-                if(name[m][0][0] == 'f'):
-                    X_test.append(np.array([0]+f_test[m][1:49]).astype(dtype = theano.config.floatX))
-                else:
-                    X_test.append(np.array([1]+f_test[m][1:49]).astype(dtype = theano.config.floatX))
-                m=m+1
-            else: 
-                if(flag_wav_end_test==0):
-                    #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                    #y=[0]*48
-                    #y[typeidx]=1
-                    #Y_test.append(y)
-                    if(name[m][0][0] == 'f'):
-                        X_test.append(np.array([0]+f_test[m][1:49]).astype(dtype = theano.config.floatX))
+            num.append(m)
+            if m+len_max<test_num:
+                m = wav_end_test[wav_count]+1
+            else:
+                end_test = 1
+                a = [x for x  in num if x!=m]
+                this_batch_size = len(a)+1
+            if wav_count < len(wav_end_test)-1:
+                wav_count = wav_count+1
+            rand_num = rand_num+1
+        count_len.append( 0 ) 
+        flag_wav_end.append(0)
+        wav_len.append(0)
+
+    #print 'num',num
+
+    while(count777<len_max):
+        X_batch = []
+        Y_batch = []
+        for bi in range(batch_num):
+            now_i = num[bi]
+            if( (count_len[bi]+now_i) in wav_end):
+                if flag_wav_end[bi]==0:
+                    flag_wav_end[bi] = 1
+                    if(name[count_len[bi]+now_i][0][0] == 'f'):
+                        X_batch.append(np.array([0]+f_test[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
                     else:
-                        X_test.append(np.array([1]+f_test[m][1:49]).astype(dtype = theano.config.floatX))
-                    flag_wav_end_test = 1
-                    wave_lengh = int(name[m][2])
+                        X_batch.append(np.array([1]+f_test[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                    wav_len[bi] = (count_len[bi]+1-1)%len_max +1
+                    #count_len[bi] = count_len[bi]+1
                 else:
-                    y=[0]*49
-                    #Y_test.append(y)
-                    X_test.append(y)
-        count777_test = count777_test+1;
-    m=m+1
-    Ya = rnn_test_y_evaluate(X_test)
-    for index in range(wave_lengh):
-        test_ans.write(f_test[test_index+index][0])
-        test_ans.write(',')
-        test_ans.write(test_c.map(Ya[index]))
-        if m!=test_num-1-1:
+                    yy = [0]*49
+                    X_batch.append(yy)
+            else:
+                if(name[count_len[bi]+now_i][0][0] == 'f'):
+                    X_batch.append(np.array([0]+f_test[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                else:
+                    X_batch.append(np.array([1]+f_test[count_len[bi]+now_i][1:49]).astype(dtype = theano.config.floatX))
+                wav_len[bi] = (count_len[bi]+1-1)%len_max +1
+                count_len[bi] = count_len[bi]+1
+
+        
+        X.append(X_batch)
+        Y.append(Y_batch)
+        count777 = count777+1
+    Ya = rnn_test_y_evaluate(X)       
+    #print 'wav_len',wav_len
+    if (len(X)!=len_max):
+        print 'len wrong!!'
+    Ya_new = []
+    for index_i in range(this_batch_size):
+        Ya_new_temp = []
+        for index in range(len_max):
+            Ya_new_temp.append (Ya[index][index_i])
+        Ya_new.append(Ya_new_temp)
+    #temp = -1
+    for index in range(this_batch_size):
+        now_i = num[index]
+
+        #print 'wav_len[index]',wav_len[index]
+        for index_b in range( wav_len[index] ):
+            
+            test_ans.write(f_test[now_i+index_b][0])
+            test_ans.write(',')
+            test_ans.write(c.map(Ya_new[index][index_b],1).split('\n')[0] )
+            #print 'index',index
+            #print 'index_b',index_b
             test_ans.write('\n')
-    test_index = test_index+wave_lengh
+            #if temp+1!=now_i+index_b:
+            #    print 'here!!!!!!!!!!',now_i+index_b
+            #    print 'wav_len',wav_len[index]
+            #print now_i+index_b
+            temp = now_i+index_b

@@ -11,30 +11,30 @@ from random import randrange
 __author__= 'JasonWu'
 
 # Number of units in the hidden (recurrent) layer
-N_HIDDEN = 512
+N_HIDDEN = 128
 # input
 N_INPUT = 49 # 48 + 1 (male = 1, female = 0)
 # output
 N_OUTPUT = 48
 
-len_max = 777
+len_max = 150
+LR = 0.0001
 
 x_seq = T.matrix()
 y_hat = T.matrix()
 mask = T.vector()
 start = T.scalar()
 PARM = T.matrix()
-'''
+
 #################### LOAD PARAMETER #################
-parm_data = file('parameter_RNN_1105_gender_1.txt','rb')
+parm_data = file('parameter_RNN_gender_2.txt','rb')
 parm = cPickle.load(parm_data)
 Wi = parm[0] 
 bh = parm[1] 
 Wo = parm[2] 
 bo = parm[3] 
 Wh = parm[4] 
-'''
-'''
+
 print Wi.get_value()
 print bh.get_value()
 print Wo.get_value()
@@ -46,8 +46,8 @@ Wi = theano.shared( np.random.randn(N_INPUT,N_HIDDEN) )
 bh = theano.shared( np.zeros(N_HIDDEN) )
 Wo = theano.shared( np.random.randn(N_HIDDEN,N_OUTPUT))
 bo = theano.shared( np.zeros(N_OUTPUT) )
-Wh = theano.shared( np.identity( (N_HIDDEN) ) )
-
+Wh = theano.shared( np.zeros( (N_HIDDEN,N_HIDDEN) ) )
+'''
 #sigma = theano.shared(np.random.randn(N_INPUT,N_HIDDEN) )
 #Wi = theano.shared( np.random.normal(0, 0.1, (N_INPUT,N_HIDDEN)) )
 #Wo = theano.shared( np.random.normal(0, 0.1, (N_HIDDEN,N_OUTPUT)) )
@@ -89,7 +89,7 @@ def RMSprop(cost, params, lr=0.001, rho=0.9, epsilon=1e-6):
         gradient_scaling = T.sqrt(acc_new + epsilon)
         g = g / gradient_scaling
         updates.append((acc, acc_new))
-        updates.append((p, p - lr * T.clip(g,-10,10)))
+        updates.append((p, p - lr * T.clip(g,-5,5)))
     return updates
 
 rnn_test_cost = theano.function(
@@ -113,7 +113,7 @@ rnn_test_parm = theano.function(
 rnn_train_test = theano.function(
         inputs=[x_seq,y_hat,mask],
         outputs=cost,
-        updates=RMSprop(cost, parameters, lr=0.001, rho=0.9, epsilon=1e-6)
+        updates=RMSprop(cost, parameters, LR, rho=0.9, epsilon=1e-6)
 )
 
 def float_convert(i):
@@ -123,7 +123,7 @@ def float_convert(i):
         return i
 
 ######################################################## testbench part ##########################################
-
+'''
 train_number = 1091215#1095820 #1124823
 validation_num = 1124823-1091215#1095820
 
@@ -189,7 +189,9 @@ try:
         if i>=train_number:#i>=1124823:
             i=0
             epoch=1
-        now_i = wav_start_train[ randrange(0,sentence_number) ]
+        #now_i = wav_start_train[ randrange(0,sentence_number) ]
+        #now_i = randrange(0,(train_number/len_max+1) )*len_max
+        now_i = randrange(0,train_number-len_max)
         ii=0
         while (count777<len_max) :
             if(ii+now_i==train_number-1):
@@ -203,7 +205,7 @@ try:
                     else:
                         X.append(np.array([1]+f_DNNsoft[ii+now_i][1:49]))
                     flag_data_end = 1
-                    wav_len = int(name[ii+now_i][2])  
+                    wav_len = (int(name[ii+now_i][2])-1)%len_max+1
                 else:
                     y=[0]*48
                     yy = [0]*49
@@ -219,7 +221,9 @@ try:
                         X.append(np.array([0]+f_DNNsoft[ii+now_i][1:49]))
                     else:
                         X.append(np.array([1]+f_DNNsoft[ii+now_i][1:49]))
-                    i=i+1
+                    wav_len = (int(name[ii+now_i][2])-1)%len_max+1
+                    if(count777!=len_max-1):
+                        i=i+1
                     ii = ii+1
                 else: 
                     if(flag_wav_end==0):
@@ -232,7 +236,7 @@ try:
                         else:
                             X.append(np.array([1]+f_DNNsoft[ii+now_i][1:49]))
                         flag_wav_end = 1
-                        wav_len = int(name[ii+now_i][2])
+                        wav_len = (int(name[ii+now_i][2])-1)%len_max+1
                     else:
                         y=[0]*48
                         yy = [0]*49
@@ -243,7 +247,7 @@ try:
             #    print i 
 
 
-        if (ii+now_i not in wav):
+        if ((ii%len_max)!=0 and ((ii+now_i)not in wav) ):
             print "FUCKING!!!!"
             print 'ii+now_i' ,(ii+now_i)
         if (len(X)!=len_max or len(Y)!=len_max):
@@ -284,57 +288,64 @@ try:
                 flag_wav_end_test = 0
                 count777_test = 0
                 wave_lengh = 0
-                while (count777_test<777) :
+                ii = 0
+                while (count777_test<len_max) :
                     if(m==validation_num-1):
                         if(flag_data_end_test==0):
-                            typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                            y=[0]*48
-                            y[typeidx]=1
-                            Y_test.append(y)
+                            #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
+                            #y=[0]*48
+                            #y[typeidx]=1
+                            #Y_test.append(y)
                             if(name[train_number+m][0][0] == 'f'):
                                 X_test.append(np.array([0]+f_DNNsoft[train_number+m][1:49]))
                             else:
                                 X_test.append(np.array([1]+f_DNNsoft[train_number+m][1:49]))
                             flag_data_end_test = 1
-                            wave_lengh = int(name[train_number+m][2])
+                            wave_lengh = (int(name[train_number+m][2])-1)%len_max+1
                         else:
-                            y=[0]*48
+                            #y=[0]*48
                             yy= [0]*49
-                            Y_test.append(y)
+                            #Y_test.append(y)
                             X_test.append(yy)
                     else:
                         if(name[train_number+m][0]==name[train_number+m+1][0] and name[train_number+m][1]==name[train_number+m+1][1]) :
-                            typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                            y=[0]*48
-                            y[typeidx]=1
-                            Y_test.append(y)
+                            #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
+                            #y=[0]*48
+                            #y[typeidx]=1
+                            #Y_test.append(y)
                             if(name[train_number+m][0][0] == 'f'):
                                 X_test.append(np.array([0]+f_DNNsoft[train_number+m][1:49]))
                             else:
                                 X_test.append(np.array([1]+f_DNNsoft[train_number+m][1:49]))
-                            m=m+1
+                            wave_lengh = (int(name[train_number+m][2])-1)%len_max+1
+                            if count777_test!=len_max-1:
+                                m=m+1
+                            ii = ii+1
                         else: 
                             if(flag_wav_end_test==0):
-                                typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
-                                y=[0]*48
-                                y[typeidx]=1
-                                Y_test.append(y)
+                                #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
+                                #y=[0]*48
+                                #y[typeidx]=1
+                                #Y_test.append(y)
                                 if(name[train_number+m][0][0] == 'f'):
                                     X_test.append(np.array([0]+f_DNNsoft[train_number+m][1:49]))
                                 else:
                                     X_test.append(np.array([1]+f_DNNsoft[train_number+m][1:49]))
                                 flag_wav_end_test = 1
-                                wave_lengh = int(name[train_number+m][2])
+                                wave_lengh = (int(name[train_number+m][2])-1)%len_max+1
                             else:
-                                y=[0]*48
+                                #y=[0]*48
                                 yy = [0]*49
-                                Y_test.append(y)
+                                #Y_test.append(y)
                                 X_test.append(yy)
                     count777_test = count777_test+1;
-                if ((m+train_number) not in wav):
+                #print 'wave_lengh',wave_lengh
+                #print 'now m = ', m 
+
+                if (  ((m+train_number) not in wav) and (ii%len_max!=0) ):
                     print "FUCKING TWO!!!!"
                     print 'm' ,m
-                if (len(X_test)!=777 or len(Y_test)!=777):
+                if (len(X_test)!=len_max):
                     print 'len wrong!!'
 
                 m=m+1
@@ -361,15 +372,15 @@ except KeyboardInterrupt:
 f.close()
 ans_data.close()
 
-f_P = file('parameter_RNN_gender.txt', 'wb')
+f_P = file('parameter_RNN_gender_2.txt', 'wb')
 cPickle.dump(parameters, f_P, protocol=cPickle.HIGHEST_PROTOCOL)
 f_P.close()
-
+'''
 
 ######################## test ############################
 
 test_f = open('DNN_softmax_test.txt','r')
-test_ans = open('RNN_test_ans_1110.csv','w')
+test_ans = open('RNN_test_ans_1111.csv','w')
 
 f_test = []
 name = []
@@ -393,7 +404,7 @@ while(m<test_num):
     flag_wav_end_test = 0
     count777_test = 0
     wave_lengh = 0;
-    while (count777_test<777) :
+    while (count777_test<len_max) :
         if(m==test_num-1):
             if(flag_data_end_test==0):
                 #typeidx = anstype.index(str(ans[m].split('\n')[0]))
@@ -405,7 +416,7 @@ while(m<test_num):
                 else:
                     X_test.append(np.array([1]+f_test[m][1:49]))
                 flag_data_end_test = 1
-                wave_lengh = int(name[m][2])
+                wave_lengh = (int(name[m][2])-1)%len_max+1
             else:
                 y=[0]*49
                 #Y_test.append(y)
@@ -420,7 +431,9 @@ while(m<test_num):
                     X_test.append(np.array([0]+f_test[m][1:49]))
                 else:
                     X_test.append(np.array([1]+f_test[m][1:49]))
-                m=m+1
+                wave_lengh = (int(name[m][2])-1)%len_max+1
+                if count777_test!=len_max-1:
+                    m=m+1
             else: 
                 if(flag_wav_end_test==0):
                     #typeidx = anstype.index(str(ans[train_number+m].split('\n')[0]))
@@ -432,7 +445,7 @@ while(m<test_num):
                     else:
                         X_test.append(np.array([1]+f_test[m][1:49]))
                     flag_wav_end_test = 1
-                    wave_lengh = int(name[m][2])
+                    wave_lengh = (int(name[m][2])-1)%len_max+1
                 else:
                     y=[0]*49
                     #Y_test.append(y)
