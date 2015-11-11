@@ -11,7 +11,7 @@ import pdb
 __author__= 'JasonWu'
 
 # Number of units in the hidden (recurrent) layer
-N_HIDDEN = 128
+N_HIDDEN = 512
 # input
 N_INPUT = 49 # 48 + 1 (male = 1, female = 0)
 # output
@@ -19,7 +19,7 @@ N_OUTPUT = 48
 #mini batch
 batch_num = 10
 #sentence max length
-len_max = 200
+len_max = 100
 
 LR = 0.001
 
@@ -178,7 +178,7 @@ for i in range( validation_num ):
 
 sentence_number = len(wav_start_train)
 sentence_number_test = len(wav_start_test)
-run_time = sentence_number/batch_num
+run_time = train_number/(batch_num*len_max)
 #print 'sentence_number_test',sentence_number_test
 
 anstype = ["aa", "ae", "ah", "ao", "aw", "ax", "ay", "b", "ch", "cl", "d", "dh", "dx", "eh", "el"
@@ -406,7 +406,7 @@ except KeyboardInterrupt:
 f.close()
 ans_data.close()
 
-f_P = file('parameter_RNN_batch_1111_1.txt', 'wb')
+f_P = file('parameter_RNN_batch_1112.txt', 'wb')
 cPickle.dump(parameters, f_P, protocol=cPickle.HIGHEST_PROTOCOL)
 f_P.close()
 
